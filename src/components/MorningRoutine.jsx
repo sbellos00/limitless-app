@@ -18,10 +18,11 @@ export default function MorningRoutine({
   onStatusChange,
   onViewChange,
   creativeBlockStartTime,
-  onStartCreativeBlock
+  onStartCreativeBlock,
+  onNewDay
 }) {
   if (currentView === 'night-routine') {
-    return <NightRoutine />
+    return <NightRoutine onNewDay={onNewDay} />
   }
 
   if (currentView === 'work-sessions') {

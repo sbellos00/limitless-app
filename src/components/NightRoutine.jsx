@@ -85,7 +85,7 @@ function HoldButton({ onComplete, label }) {
   )
 }
 
-export default function NightRoutine() {
+export default function NightRoutine({ onNewDay }) {
   const [statuses, setStatuses] = useState(() => {
     try {
       const raw = localStorage.getItem(LS_KEY)
@@ -201,6 +201,12 @@ export default function NightRoutine() {
             )}
           </div>
           <p className="mt-6 text-[13px] text-white/15">Rest well. Tomorrow starts fresh.</p>
+          <button
+            className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-3 text-[15px] font-medium text-white/50"
+            onClick={() => onNewDay?.()}
+          >
+            Start New Day
+          </button>
         </motion.div>
       </div>
     )

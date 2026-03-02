@@ -148,14 +148,15 @@ export default function DevPanel() {
       {/* Toggle button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed top-2 right-2 z-[200] flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[12px] font-bold text-white/60 backdrop-blur-sm"
+        className="fixed right-2 z-[200] flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[12px] font-bold text-white/60 backdrop-blur-sm"
+        style={{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
       >
         {open ? '\u2715' : 'D'}
       </button>
 
       {/* Panel */}
       {open && (
-        <div className="fixed top-12 right-2 z-[200] w-[160px] rounded-2xl bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/[0.08] p-2 shadow-2xl">
+        <div className="fixed right-2 z-[200] w-[160px] rounded-2xl bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/[0.08] p-2 shadow-2xl" style={{ top: 'calc(3rem + env(safe-area-inset-top, 0px))' }}>
           <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-white/30">
             Dev States
           </p>

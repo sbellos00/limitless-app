@@ -1,0 +1,61 @@
+{
+  "badges": {
+    "rdf": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "frame-control": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "fearlessness": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "aggression": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "carefreeness": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "presence": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "bias-to-action": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    },
+    "visionary-framing": {
+      "tier": 1,
+      "xp": 0,
+      "exercises": {},
+      "streak": 0,
+      "lastExercise": null
+    }
+  },
+  "totalXp": 0
+}

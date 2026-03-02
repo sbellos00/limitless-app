@@ -299,6 +299,46 @@
           "xp": 5
         }
       ]
+    },
+    {
+      "slug": "visionary-framing",
+      "name": "Visionary Framing",
+      "emoji": "🔭",
+      "description": "See significance in the ordinary, articulate it with fire, and back it with bedrock conviction. The same thing becomes forgettable or magnetic depending on the lens you put on it.",
+      "identityStatement": "I see what others sleepwalk past. I frame it so powerfully that people can't stay on autopilot.",
+      "voteCategory": "personality",
+      "exercises": [
+        {
+          "id": "vf-remarkable-eye",
+          "title": "The Remarkable Eye",
+          "description": "Pick one ordinary thing today — an object, routine, service, or someone's work. Write 3-5 sentences on what's actually remarkable about it. No fluff. The real thing.",
+          "xp": 5
+        },
+        {
+          "id": "vf-meaning-rewrite",
+          "title": "Meaning Rewrite",
+          "description": "Take one bland description of something (your work, a product, a service) and rewrite it so it transmits feeling, not just information. Features → meaning.",
+          "xp": 5
+        },
+        {
+          "id": "vf-conviction-depth",
+          "title": "Conviction Depth",
+          "description": "Pick one thing you care about and write until you hit bedrock belief — the deepest 'why' underneath it. Keep asking 'but why does that matter' until you can't go deeper.",
+          "xp": 5
+        },
+        {
+          "id": "vf-framing-study",
+          "title": "Framing Study",
+          "description": "Study how one great communicator (director, chef, architect, founder) talks about their craft. Note 3 specific techniques — concrete imagery, small-to-big connections, zero hedging.",
+          "xp": 5
+        },
+        {
+          "id": "vf-60-second-pitch",
+          "title": "60-Second Pitch",
+          "description": "Pick anything — a restaurant, a tool, an idea, someone's career — and write or speak a 60-second Jobs-style pitch that would make a stranger stop and care.",
+          "xp": 5
+        }
+      ]
     }
   ]
 }

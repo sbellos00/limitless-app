@@ -35,6 +35,7 @@
 - [x] VF Game: conviction tracking, vote generation (-0.5 inaction), XP bonuses/penalties
 - [x] Badge data: persistent files (no daily reset) for progress + missions
 - [x] Full docs update (DOCS.md sections 14-15)
+- [x] HistoryTab: 14-day trend view + day drilldown (sleep/morning/work/votes) + 6th nav tab
 
 ---
 

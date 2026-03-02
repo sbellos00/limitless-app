@@ -6,6 +6,7 @@ import MorningRoutine from './components/MorningRoutine.jsx'
 import BadgesTab from './components/BadgesTab.jsx'
 import StateTab from './components/StateTab.jsx'
 import StatsTab from './components/StatsTab.jsx'
+import HistoryTab from './components/HistoryTab.jsx'
 import morningRoutine from './data/morningRoutine.js'
 import DevPanel from './components/DevPanel.jsx'
 
@@ -66,11 +67,13 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.lastReset, today)
     }
 
-    // Reconcile: fetch server state and merge into localStorage
+    // Reconcile: restore mid-morning progress if app was closed and reopened
+    // Skip if all items are already logged — morning was completed, don't re-trigger completion screen
     fetch('/api/morning-block-log')
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data || data.date !== today || !data.items?.length) return
+        if (data.items.length >= items.length) return // morning fully logged, skip
         const serverStatuses = {}
         for (const item of data.items) {
           serverStatuses[item.id] = item.status
@@ -146,6 +149,16 @@ export default function App() {
       onViewChange={setCurrentView}
       creativeBlockStartTime={creativeBlockStartTime}
       onStartCreativeBlock={handleStartCreativeBlock}
+      onNewDay={() => {
+        localStorage.removeItem(STORAGE_KEYS.statuses)
+        localStorage.removeItem(STORAGE_KEYS.currentView)
+        localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
+        localStorage.removeItem(STORAGE_KEYS.workSessions)
+        localStorage.removeItem(STORAGE_KEYS.nightRoutine)
+        setStatuses({})
+        setCurrentView('morning-routine')
+        setCreativeBlockStartTime(null)
+      }}
     />
   )
 
@@ -172,6 +185,7 @@ export default function App() {
               {activeTab === 'state' && <StateTab />}
               {activeTab === 'badges' && <BadgesTab />}
               {activeTab === 'stats' && <StatsTab />}
+              {activeTab === 'history' && <HistoryTab />}
             </motion.div>
           </AnimatePresence>
         </main>

@@ -244,24 +244,24 @@ assert '$TEST_ITEM' in ids, 'item not found in file'
   # GET /badges
   BADGES_RESP=$(curl -sf "$API/badges" 2>/dev/null)
   BADGE_COUNT=$(echo "$BADGES_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('badges',[])))" 2>/dev/null)
-  if [[ "$BADGE_COUNT" == "7" ]]; then
-    pass "GET /badges returns 7 badges"
+  if [[ "$BADGE_COUNT" == "8" ]]; then
+    pass "GET /badges returns 8 badges"
   else
-    fail "GET /badges returned $BADGE_COUNT badges (expected 7)"
+    fail "GET /badges returned $BADGE_COUNT badges (expected 8)"
   fi
 
   # GET /badges/missions
   MISSIONS_RESP=$(curl -sf "$API/badges/missions" 2>/dev/null)
   MISSION_COUNT=$(echo "$MISSIONS_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('missions',[])))" 2>/dev/null)
-  if [[ "$MISSION_COUNT" == "105" ]]; then
-    pass "GET /badges/missions returns 105 missions"
+  if [[ "$MISSION_COUNT" == "120" ]]; then
+    pass "GET /badges/missions returns 120 missions"
   else
-    fail "GET /badges/missions returned $MISSION_COUNT missions (expected 105)"
+    fail "GET /badges/missions returned $MISSION_COUNT missions (expected 120)"
   fi
 
   # GET /badge-progress
   BP_RESP=$(curl -sf "$API/badge-progress" 2>/dev/null)
-  if echo "$BP_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d.get('badges',{})) == 7" 2>/dev/null; then
+  if echo "$BP_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d.get('badges',{})) == 8" 2>/dev/null; then
     pass "GET /badge-progress returns 7 badge progress entries"
   else
     fail "GET /badge-progress missing badges"
@@ -292,10 +292,10 @@ assert '$TEST_ITEM' in ids, 'item not found in file'
     -H "Content-Type: application/json" \
     -d '{}' 2>/dev/null)
   ACTIVE_COUNT=$(echo "$ASSIGN_RESULT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('active',[])))" 2>/dev/null)
-  if [[ "$ACTIVE_COUNT" == "7" ]]; then
-    pass "POST /badge-missions/assign assigns 7 missions"
+  if [[ "$ACTIVE_COUNT" == "8" ]]; then
+    pass "POST /badge-missions/assign assigns 8 missions"
   else
-    fail "POST /badge-missions/assign assigned $ACTIVE_COUNT missions (expected 7)"
+    fail "POST /badge-missions/assign assigned $ACTIVE_COUNT missions (expected 8)"
   fi
 
   # POST /badge-missions/complete
@@ -335,10 +335,10 @@ assert '$TEST_ITEM' in ids, 'item not found in file'
   curl -sf -X POST "$API/vf-game" -H "Content-Type: application/json" -d '{"presenceScore":5}' > /dev/null 2>&1
   VF_RESP=$(curl -sf "$API/vf-game" 2>/dev/null)
   VF_AFF=$(echo "$VF_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('affirmations',[])))" 2>/dev/null)
-  if [[ "$VF_AFF" == "7" ]]; then
+  if [[ "$VF_AFF" == "8" ]]; then
     pass "GET /vf-game returns 7 affirmations"
   else
-    fail "GET /vf-game returned $VF_AFF affirmations (expected 7)"
+    fail "GET /vf-game returned $VF_AFF affirmations (expected 8)"
   fi
 
   # POST /vf-game
