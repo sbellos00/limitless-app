@@ -146,11 +146,13 @@ export default function App() {
   }, [dayActive])
 
   useEffect(() => {
-    if (dayActive) return
-    if (dayStartTimestamp != null) {
+    if (dayStartTimestamp == null) return
+    if (dayRemainingMs <= 0) {
+      // Auto-expire after 24h
       setDayStartTimestamp(null)
+      localStorage.removeItem(STORAGE_KEYS.dayStart)
     }
-  }, [dayActive, dayStartTimestamp])
+  }, [dayRemainingMs, dayStartTimestamp])
 
   useEffect(() => {
     const allComplete = flatItems.every((item) => statuses[item.id])
@@ -259,12 +261,13 @@ export default function App() {
         <AnimatePresence>
           {dayActive && (
             <DayCountdownBar
+              key="day-bar"
               remainingMs={Math.max(dayRemainingMs, 0)}
               onEndDay={handleEndDay}
             />
           )}
         </AnimatePresence>
-        <main className="flex-1 min-h-0 flex flex-col pt-safe">
+        <main className="flex-1 min-h-0 flex flex-col">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
