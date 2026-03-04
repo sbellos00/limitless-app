@@ -210,6 +210,15 @@ export default function App() {
   const handleEndDay = () => {
     setDayStartTimestamp(null)
     localStorage.removeItem(STORAGE_KEYS.dayStart)
+    localStorage.removeItem(STORAGE_KEYS.statuses)
+    localStorage.removeItem(STORAGE_KEYS.currentView)
+    localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
+    localStorage.removeItem(STORAGE_KEYS.workSessions)
+    localStorage.removeItem(STORAGE_KEYS.nightRoutine)
+    setStatuses({})
+    setCurrentView('morning-routine')
+    setCreativeBlockStartTime(null)
+    setActiveTab('home')
   }
 
   const handleStartCreativeBlock = () => {
