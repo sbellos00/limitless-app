@@ -54,7 +54,7 @@ const tabs = [
 export default function BottomNav({ activeTab, onChange }) {
   return (
     <nav className="glass-bar border-t border-white/[0.04]">
-      <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 pt-2 pb-1">
+      <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 py-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.id
           return (
@@ -86,8 +86,7 @@ export default function BottomNav({ activeTab, onChange }) {
           )
         })}
       </div>
-      {/* Home indicator / safe area fill */}
-      <div style={{ height: 'env(safe-area-inset-bottom, 0px)', minHeight: '4px' }} />
+
     </nav>
   )
 }

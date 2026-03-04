@@ -173,10 +173,17 @@ export default function MorningRoutine({
       return `${done}/${cat.items.length}`
     }
 
-    // FLOW ACTIVE — full screen card, nothing else
+    // FLOW ACTIVE — full screen card with back button
     if (flowActive && nextItem) {
       return (
         <div className="flex-1 flex flex-col">
+          <button
+            type="button"
+            onClick={() => setFlowActive(false)}
+            className="px-6 pt-6 pb-2 text-left text-[13px] font-medium text-white/30"
+          >
+            ← Back
+          </button>
           <HabitCard
             item={nextItem}
             index={currentIndex}
@@ -495,6 +502,32 @@ export default function MorningRoutine({
             </motion.button>
           )
         })}
+      </div>
+
+      {/* Full-day phase shortcuts */}
+      <div className="mt-6 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/20">Rest of Day</p>
+        {[
+          { key: 'creative-block', emoji: '🎨', label: 'Creative Block', sub: '3h deep creation' },
+          { key: 'work-sessions', emoji: '⚡', label: 'Deep Work', sub: '3 × 90 min sessions' },
+          { key: 'night-routine', emoji: '🌙', label: 'Night Routine', sub: 'Wind down + planning' },
+        ].map(({ key, emoji, label, sub }) => (
+          <motion.button
+            key={key}
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onViewChange(key)}
+            className="w-full rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[20px]">{emoji}</span>
+              <div>
+                <p className="text-[15px] font-semibold text-white">{label}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/35">{sub}</p>
+              </div>
+            </div>
+          </motion.button>
+        ))}
       </div>
     </div>
   )
