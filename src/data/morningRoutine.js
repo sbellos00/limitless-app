@@ -1,50 +1,71 @@
 const morningRoutine = [
   {
-    id: 'sleep-screenshot',
-    title: 'Sleep Cycle',
-    description: 'Take a screenshot of your Sleep Cycle data and send it to Pulse.',
-    needsPulse: true
+    id: 'reading',
+    title: 'Reading',
+    emoji: '📖',
+    items: [
+      {
+        id: 'morning-reading',
+        title: 'Morning Reading',
+        description: 'Power of Now or The Creative Act.'
+      }
+    ]
   },
   {
-    id: 'morning-reading',
-    title: 'Morning Reading',
-    description: 'A few pages of Power of Now or The Creative Act.'
+    id: 'wellness',
+    title: 'Wellness',
+    emoji: '🧘',
+    items: [
+      {
+        id: 'journaling',
+        title: 'Journaling',
+        description: 'One page, ~5 minutes. Write freely, no filter.'
+      },
+      {
+        id: 'sunlight-walk',
+        title: 'Sunlight Walk',
+        description: 'Get outside and let the light set your rhythm.'
+      },
+      {
+        id: 'cold-shower',
+        title: 'Cold Shower',
+        description: 'Finish cold. 30 seconds minimum.'
+      }
+    ]
   },
   {
-    id: 'journaling',
-    title: 'Journaling',
-    description: 'One page, ~5 minutes. Write freely, no filter.'
+    id: 'mindset',
+    title: 'Mindset Training',
+    emoji: '🔥',
+    items: [
+      {
+        id: 'review-plan',
+        title: 'Review Plan',
+        description: "Review today's plan, affirmations, and philosophies."
+      },
+      {
+        id: 'write-values',
+        title: 'Write Values',
+        description: 'Write your values and beliefs by hand. Feel them.'
+      }
+    ]
   },
   {
-    id: 'review-plan',
-    title: 'Review Plan',
-    description: 'Review today\'s plan, affirmations, values, and philosophies.'
-  },
-  {
-    id: 'sunlight-walk',
-    title: 'Sunlight Walk',
-    description: 'Get outside. Walk, think about the day, prepare for visualization.'
-  },
-  {
-    id: 'fitmind',
-    title: 'FitMind',
-    description: 'Complete your mental workout, then screenshot and send to Pulse.',
-    needsPulse: true
-  },
-  {
-    id: 'shower',
-    title: 'Cold Shower',
-    description: 'End cold. 30 seconds minimum.'
-  },
-  {
-    id: 'visualization',
-    title: 'Visualization',
-    description: 'Short-term visualization. See the day clearly.'
-  },
-  {
-    id: 'write-values',
-    title: 'Write Values',
-    description: 'Write your values, beliefs, and affirmations by hand. Feel them.'
+    id: 'mind-training',
+    title: 'Mind Training',
+    emoji: '🧠',
+    items: [
+      {
+        id: 'fitmind',
+        title: 'FitMind',
+        description: 'Complete your mental workout.'
+      },
+      {
+        id: 'visualization',
+        title: 'Visualization',
+        description: 'See the day clearly. Short-term visualization.'
+      }
+    ]
   }
 ]
 

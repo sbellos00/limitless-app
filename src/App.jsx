@@ -9,6 +9,7 @@ import StatsTab from './components/StatsTab.jsx'
 import HistoryTab from './components/HistoryTab.jsx'
 import morningRoutine from './data/morningRoutine.js'
 import DevPanel from './components/DevPanel.jsx'
+import DayCountdownBar from './components/DayCountdownBar.jsx'
 
 const STORAGE_KEYS = {
   statuses: 'limitless_morning_statuses',
@@ -16,8 +17,11 @@ const STORAGE_KEYS = {
   creativeBlockStart: 'limitless_creative_block_start',
   workSessions: 'limitless_work_sessions',
   nightRoutine: 'limitless_night_routine',
-  lastReset: 'limitless_last_reset'
+  lastReset: 'limitless_last_reset',
+  dayStart: 'limitless_day_start'
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const loadJson = (key, fallback) => {
   try {
@@ -40,8 +44,17 @@ export default function App() {
     const stored = localStorage.getItem(STORAGE_KEYS.creativeBlockStart)
     return stored ? Number(stored) : null
   })
+  const [dayStartTimestamp, setDayStartTimestamp] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEYS.dayStart)
+    return stored ? Number(stored) : null
+  })
+  const [now, setNow] = useState(Date.now())
 
   const items = useMemo(() => morningRoutine, [])
+  const flatItems = useMemo(() => morningRoutine.flatMap((category) => category.items), [])
+
+  const dayRemainingMs = dayStartTimestamp ? DAY_MS - (now - dayStartTimestamp) : 0
+  const dayActive = dayStartTimestamp != null && dayRemainingMs > 0
 
   // Daily reset + reconcile with server on mount
   useEffect(() => {
@@ -73,7 +86,7 @@ export default function App() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data || data.date !== today || !data.items?.length) return
-        if (data.items.length >= items.length) return // morning fully logged, skip
+        if (data.items.length >= flatItems.length) return // morning fully logged, skip
         const serverStatuses = {}
         for (const item of data.items) {
           serverStatuses[item.id] = item.status
@@ -86,6 +99,21 @@ export default function App() {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    fetch('/api/morning-state')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || data.date !== today) return
+        if (dayStartTimestamp) return
+        const stamp = data.createdAt ? Date.parse(data.createdAt) : null
+        if (!stamp || Number.isNaN(stamp)) return
+        localStorage.setItem(STORAGE_KEYS.dayStart, String(stamp))
+        setDayStartTimestamp(stamp)
+      })
+      .catch(() => {})
+  }, [dayStartTimestamp])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(statuses))
@@ -104,11 +132,32 @@ export default function App() {
   }, [creativeBlockStartTime])
 
   useEffect(() => {
-    const allComplete = items.every((item) => statuses[item.id])
+    if (dayStartTimestamp) {
+      localStorage.setItem(STORAGE_KEYS.dayStart, String(dayStartTimestamp))
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.dayStart)
+    }
+  }, [dayStartTimestamp])
+
+  useEffect(() => {
+    if (!dayActive) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [dayActive])
+
+  useEffect(() => {
+    if (dayActive) return
+    if (dayStartTimestamp != null) {
+      setDayStartTimestamp(null)
+    }
+  }, [dayActive, dayStartTimestamp])
+
+  useEffect(() => {
+    const allComplete = flatItems.every((item) => statuses[item.id])
     if (allComplete && currentView === 'morning-routine') {
       setCurrentView('completed')
     }
-  }, [items, statuses, currentView])
+  }, [flatItems, statuses, currentView])
 
   const logInteraction = async (itemId, status) => {
     try {
@@ -127,11 +176,40 @@ export default function App() {
   }
 
   const handleStatusChange = (itemId, status) => {
-    setStatuses((prev) => ({
-      ...prev,
-      [itemId]: status
-    }))
-    logInteraction(itemId, status)
+    setStatuses((prev) => {
+      const next = { ...prev }
+      if (status == null) {
+        delete next[itemId]
+      } else {
+        next[itemId] = status
+      }
+      return next
+    })
+    if (status) logInteraction(itemId, status)
+  }
+
+  const handleStartDay = async () => {
+    if (dayActive) return
+    const stamp = Date.now()
+    setDayStartTimestamp(stamp)
+    localStorage.setItem(STORAGE_KEYS.dayStart, String(stamp))
+    try {
+      await fetch('/api/morning-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          createdAt: new Date(stamp).toISOString(),
+          updatedAt: new Date(stamp).toISOString()
+        })
+      })
+    } catch {
+      // ignore network errors for day start
+    }
+  }
+
+  const handleEndDay = () => {
+    setDayStartTimestamp(null)
+    localStorage.removeItem(STORAGE_KEYS.dayStart)
   }
 
   const handleStartCreativeBlock = () => {
@@ -159,6 +237,7 @@ export default function App() {
         setCurrentView('morning-routine')
         setCreativeBlockStartTime(null)
       }}
+      dayActive={dayActive}
     />
   )
 
@@ -168,6 +247,14 @@ export default function App() {
         className="mx-auto flex h-dvh max-w-[430px] flex-col"
         style={{ paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0px))' }}
       >
+        <AnimatePresence>
+          {dayActive && (
+            <DayCountdownBar
+              remainingMs={Math.max(dayRemainingMs, 0)}
+              onEndDay={handleEndDay}
+            />
+          )}
+        </AnimatePresence>
         <main className="flex-1 min-h-0 flex flex-col pt-safe">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -179,7 +266,11 @@ export default function App() {
               className="flex-1 min-h-0 flex flex-col"
             >
               {activeTab === 'home' && (
-                <DashboardTab onNavigateToFocus={() => setActiveTab('focus')} />
+                <DashboardTab
+                  onNavigateToFocus={() => setActiveTab('focus')}
+                  dayActive={dayActive}
+                  onStartDay={handleStartDay}
+                />
               )}
               {activeTab === 'focus' && renderFocus()}
               {activeTab === 'state' && <StateTab />}

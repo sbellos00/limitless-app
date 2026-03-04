@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import morningRoutine from '../data/morningRoutine.js'
 
 const PHASES = [
   { key: 'morning', label: 'Morning Block' },
@@ -158,9 +159,15 @@ function calcState(sleep, nutrition, dopamine, mood) {
   return Math.min(Math.max(sum / totalW, 0), 10)
 }
 
-export default function DashboardTab({ onNavigateToFocus }) {
+export default function DashboardTab({ onNavigateToFocus, dayActive, onStartDay }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [morningCheckinDone, setMorningCheckinDone] = useState(false)
+
+  const morningIds = useMemo(
+    () => morningRoutine.flatMap((category) => category.items.map((item) => item.id)),
+    []
+  )
 
   const fetchAll = useCallback(async () => {
     try {
@@ -185,6 +192,14 @@ export default function DashboardTab({ onNavigateToFocus }) {
     const id = setInterval(fetchAll, 60000)
     return () => clearInterval(id)
   }, [fetchAll])
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    fetch('/api/morning-state')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.date === today && d?.energyScore != null) setMorningCheckinDone(true) })
+      .catch(() => {})
+  }, [])
 
   if (loading) {
     return (
@@ -213,8 +228,8 @@ export default function DashboardTab({ onNavigateToFocus }) {
       return raw ? JSON.parse(raw) : {}
     } catch { return {} }
   })()
-  const morningTotal = 9
-  const morningDone = Object.values(morningStatuses).filter(s => s === 'done' || s === 'skipped').length
+  const morningTotal = morningIds.length
+  const morningDone = morningIds.filter((id) => ['done', 'skipped'].includes(morningStatuses[id])).length
 
   // Creative block
   const creativeStart = localStorage.getItem('limitless_creative_block_start')
@@ -299,34 +314,95 @@ export default function DashboardTab({ onNavigateToFocus }) {
         {formatDate()}
       </motion.p>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-10">
-        {/* State ring */}
-        <MiniRing score={state} />
+      <div className="flex flex-1 flex-col items-center justify-center gap-8">
+        {!dayActive ? (
+          <motion.div
+            className="flex w-full flex-col items-center gap-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <MiniRing score={state} />
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onStartDay}
+              className="w-full rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-[16px] font-semibold text-white"
+            >
+              Start Day
+            </motion.button>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="flex w-full flex-col items-center gap-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <MiniRing score={state} />
 
-        {/* Timeline */}
-        <div className="w-full space-y-5">
-          {PHASES.map((phase, i) => (
-            <PhaseRow
-              key={phase.key}
-              label={phase.label}
-              status={getPhaseStatus(phase.key)}
-              stat={getPhaseStat(phase.key)}
-              index={i}
-            />
-          ))}
-        </div>
+            {/* Talk to Faith */}
+            {morningCheckinDone ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3"
+              >
+                <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                <p className="text-[13px] font-medium text-white/50">Morning check-in done</p>
+              </motion.div>
+            ) : (
+              <motion.a
+                href="https://t.me/FaithLimitlessBot"
+                target="_blank"
+                rel="noreferrer"
+                whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4"
+              >
+                <div>
+                  <p className="text-[15px] font-semibold text-white">Talk to Faith 🕊️</p>
+                  <p className="mt-1 text-[12px] text-white/40">Morning check-in</p>
+                </div>
+                <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/50">Open</span>
+              </motion.a>
+            )}
 
-        {/* Continue button */}
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={onNavigateToFocus}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="w-full rounded-2xl bg-white/[0.08] px-5 py-[18px] text-[15px] font-semibold text-white"
-        >
-          Continue
-        </motion.button>
+            {/* Morning progress */}
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[14px] font-semibold text-white">Morning Block</p>
+                <p className="text-[13px] font-medium tabular-nums text-white/30">{morningDone}/{morningTotal}</p>
+              </div>
+              <div className="mt-3 h-1 w-full rounded-full bg-white/10">
+                <motion.div
+                  className="h-full rounded-full bg-white/40"
+                  initial={{ width: 0 }}
+                  animate={{ width: morningTotal > 0 ? `${(morningDone / morningTotal) * 100}%` : '0%' }}
+                  transition={{ duration: 0.6, ease: 'easeOut' }}
+                />
+              </div>
+            </motion.div>
+
+            {/* Continue button */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onNavigateToFocus}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="w-full rounded-2xl bg-white/[0.08] px-5 py-[18px] text-[15px] font-semibold text-white"
+            >
+              Continue
+            </motion.button>
+          </motion.div>
+        )}
       </div>
     </div>
   )
