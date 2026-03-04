@@ -113,8 +113,8 @@ export default function MorningRoutine({
 
   const visibleCategories = mode === 'flow' ? (flowCategory ? [flowCategory] : []) : items
 
-  // Full-screen HabitCard view for active category
-  if (activeCategory) {
+  // Full-screen HabitCard view for active category (Free mode)
+  if (activeCategory && mode === 'free') {
     const category = items.find(c => c.id === activeCategory)
     if (!category) { setActiveCategory(null) }
     else {
@@ -144,6 +144,35 @@ export default function MorningRoutine({
           </div>
         )
       }
+    }
+  }
+
+  // Flow mode — original linear sequence through ALL items one at a time
+  if (mode === 'flow') {
+    const nextItem = flatItems.find(item => !isComplete(statuses[item.id]))
+    if (nextItem) {
+      const currentIndex = flatItems.indexOf(nextItem)
+      return (
+        <div className="flex-1 flex flex-col">
+          <div className="flex items-center justify-between px-6 pt-6 pb-2">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-white/30">Flow mode</p>
+            <button
+              type="button"
+              onClick={() => setMode('free')}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60"
+            >
+              Free
+            </button>
+          </div>
+          <HabitCard
+            item={nextItem}
+            index={currentIndex}
+            total={flatItems.length}
+            onDone={() => onStatusChange(nextItem.id, 'done')}
+            onSkip={() => onStatusChange(nextItem.id, 'skipped')}
+          />
+        </div>
+      )
     }
   }
 
