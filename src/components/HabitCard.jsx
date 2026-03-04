@@ -75,7 +75,7 @@ export default function HabitCard({
   ))
 
   return (
-    <div className="flex h-full flex-col px-6">
+    <div className="flex flex-1 flex-col px-6">
       {/* Progress dots */}
       <div className="flex items-center gap-1.5 pt-6 pb-2">
         {dots}

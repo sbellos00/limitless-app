@@ -44,8 +44,7 @@ const HistoryIcon = () => (
 )
 
 const tabs = [
-  { id: 'home', label: 'Home', Icon: HomeIcon },
-  { id: 'focus', label: 'Focus', Icon: FocusIcon },
+  { id: 'focus', label: 'Flow', Icon: FocusIcon },
   { id: 'state', label: 'State', Icon: StateIcon },
   { id: 'badges', label: 'Badges', Icon: BadgesIcon },
   { id: 'stats', label: 'Votes', Icon: StatsIcon },
@@ -54,10 +53,7 @@ const tabs = [
 
 export default function BottomNav({ activeTab, onChange }) {
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 glass-bar border-t border-white/[0.04]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-    >
+    <nav className="glass-bar border-t border-white/[0.04]">
       <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 pt-2 pb-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.id
@@ -90,6 +86,8 @@ export default function BottomNav({ activeTab, onChange }) {
           )
         })}
       </div>
+      {/* Home indicator / safe area fill */}
+      <div style={{ height: 'env(safe-area-inset-bottom, 0px)', minHeight: '4px' }} />
     </nav>
   )
 }

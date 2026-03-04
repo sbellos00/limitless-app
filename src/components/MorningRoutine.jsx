@@ -50,6 +50,11 @@ function PhaseRow({ label, status, stat, index }) {
   )
 }
 
+function formatDate() {
+  const d = new Date()
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
+
 export default function MorningRoutine({
   items,
   statuses,
@@ -59,7 +64,8 @@ export default function MorningRoutine({
   creativeBlockStartTime,
   onStartCreativeBlock,
   onNewDay,
-  dayActive
+  dayActive,
+  onStartDay
 }) {
   const [mode, setMode] = useState(() => localStorage.getItem(MODE_KEY) || 'flow')
   const [activeCategory, setActiveCategory] = useState(null)
@@ -91,6 +97,37 @@ export default function MorningRoutine({
   const allComplete = flatItems.every(item => isComplete(statuses[item.id]))
   const doneCount = flatItems.filter(item => statuses[item.id] === 'done').length
   const skippedCount = flatItems.filter(item => statuses[item.id] === 'skipped').length
+
+  // Pre-day: Start Day screen
+  if (!dayActive) {
+    return (
+      <div className="flex flex-1 flex-col px-6 py-10">
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-[13px] font-medium text-white/25"
+        >
+          {formatDate()}
+        </motion.p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-8">
+          <motion.div
+            className="flex w-full flex-col gap-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onStartDay}
+              className="w-full rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-[16px] font-semibold text-white"
+            >
+              Start Day
+            </motion.button>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
 
   // Special views
   if (currentView === 'night-routine') return <NightRoutine onNewDay={onNewDay} />
@@ -151,7 +188,73 @@ export default function MorningRoutine({
       )
     }
 
-    // FLOW HOME — phase timeline + Continue button (exactly like the home screen)
+    // FLOW HOME — full-day phase timeline + Continue button
+    const DAY_PHASES = [
+      { key: 'morning', label: 'Morning Block' },
+      { key: 'creative', label: 'Creative Block' },
+      { key: 'work', label: 'Deep Work' },
+      { key: 'night', label: 'Night Routine' },
+      { key: 'bed', label: 'Bed Routine' },
+    ]
+
+    const morningTotal = flatItems.length
+    const morningDone = flatItems.filter(item => isComplete(statuses[item.id])).length
+
+    const workLocal = (() => {
+      try { return JSON.parse(localStorage.getItem('limitless_work_sessions') || '{}') } catch { return {} }
+    })()
+    const workDone = [workLocal.s1End, workLocal.s2End, workLocal.s3End].filter(Boolean).length
+
+    const nightStatuses = (() => {
+      try { return JSON.parse(localStorage.getItem('limitless_night_routine') || '{}') } catch { return {} }
+    })()
+    const nightDoneCount = ['letting-go', 'nervous-system', 'plan-tomorrow'].filter(id => nightStatuses[id]).length
+    const bedDoneCount = ['finalize-plan', 'read-prompts', 'affirmations', 'alter-memories'].filter(id => nightStatuses[id]).length
+
+    function getDayPhaseStatus(key) {
+      if (key === 'morning') {
+        if (morningDone >= morningTotal && morningTotal > 0) return 'done'
+        return 'active'
+      }
+      if (key === 'creative') {
+        if (workDone > 0 || workLocal.s1End) return 'done'
+        if (creativeBlockStartTime) return 'active'
+        return 'upcoming'
+      }
+      if (key === 'work') {
+        if (nightDoneCount > 0) return 'done'
+        if (workDone >= 3) return 'done'
+        if (workDone > 0) return 'active'
+        return 'upcoming'
+      }
+      if (key === 'night') {
+        if (nightDoneCount >= 3) return 'done'
+        if (nightDoneCount > 0) return 'active'
+        return 'upcoming'
+      }
+      if (key === 'bed') {
+        if (bedDoneCount >= 4) return 'done'
+        if (bedDoneCount > 0) return 'active'
+        return 'upcoming'
+      }
+      return 'upcoming'
+    }
+
+    function getDayPhaseStat(key) {
+      if (key === 'morning') return `${morningDone}/${morningTotal}`
+      if (key === 'creative') {
+        if (!creativeBlockStartTime) return null
+        const elapsed = Date.now() - Number(creativeBlockStartTime)
+        const h = Math.floor(elapsed / 3600000)
+        const m = Math.floor((elapsed % 3600000) / 60000)
+        return `${h}:${String(m).padStart(2, '0')}`
+      }
+      if (key === 'work') return `${workDone}/3`
+      if (key === 'night') return `${nightDoneCount}/3`
+      if (key === 'bed') return `${bedDoneCount}/4`
+      return null
+    }
+
     return (
       <div className="flex flex-1 flex-col px-6 py-8">
         {/* Header with mode toggle */}
@@ -161,7 +264,7 @@ export default function MorningRoutine({
             animate={{ opacity: 1 }}
             className="text-[13px] font-medium text-white/25"
           >
-            Morning Block
+            {formatDate()}
           </motion.p>
           <button
             type="button"
@@ -173,14 +276,39 @@ export default function MorningRoutine({
         </div>
 
         <div className="flex flex-1 flex-col justify-center gap-8">
-          {/* Timeline */}
+          {/* Faith card */}
+          {morningCheckinDone ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <p className="flex-1 text-[13px] font-medium text-white/50">Morning check-in done</p>
+            </div>
+          ) : (
+            <motion.a
+              href="https://t.me/FaithLimitlessBot"
+              target="_blank"
+              rel="noreferrer"
+              whileTap={{ scale: 0.98 }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4"
+            >
+              <div>
+                <p className="text-[15px] font-semibold text-white">Talk to Faith 🕊️</p>
+                <p className="mt-1 text-[12px] text-white/40">Morning check-in</p>
+              </div>
+              <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/50">Open</span>
+            </motion.a>
+          )}
+
+          {/* Full-day phase timeline */}
           <div className="space-y-5">
-            {items.map((category, i) => (
+            {DAY_PHASES.map((phase, i) => (
               <PhaseRow
-                key={category.id}
-                label={`${category.emoji} ${category.title}`}
-                status={getCatStatus(i)}
-                stat={getCatStat(i)}
+                key={phase.key}
+                label={phase.label}
+                status={getDayPhaseStatus(phase.key)}
+                stat={getDayPhaseStat(phase.key)}
                 index={i}
               />
             ))}

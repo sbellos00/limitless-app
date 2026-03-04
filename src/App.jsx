@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import BottomNav from './components/BottomNav.jsx'
-import DashboardTab from './components/DashboardTab.jsx'
 import MorningRoutine from './components/MorningRoutine.jsx'
 import BadgesTab from './components/BadgesTab.jsx'
 import StateTab from './components/StateTab.jsx'
@@ -35,7 +34,8 @@ const loadJson = (key, fallback) => {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home')
+  const [activeTab, setActiveTab] = useState('focus')
+  const dayEndedManually = useRef(false)
   const [statuses, setStatuses] = useState(() => loadJson(STORAGE_KEYS.statuses, {}))
   const [currentView, setCurrentView] = useState(() =>
     localStorage.getItem(STORAGE_KEYS.currentView) || 'morning-routine'
@@ -101,10 +101,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (dayEndedManually.current) return
     const today = new Date().toISOString().slice(0, 10)
     fetch('/api/morning-state')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (dayEndedManually.current) return
         if (!data || data.date !== today) return
         if (dayStartTimestamp) return
         const stamp = data.createdAt ? Date.parse(data.createdAt) : null
@@ -192,6 +194,7 @@ export default function App() {
 
   const handleStartDay = async () => {
     if (dayActive) return
+    dayEndedManually.current = false
     const stamp = Date.now()
     setDayStartTimestamp(stamp)
     localStorage.setItem(STORAGE_KEYS.dayStart, String(stamp))
@@ -210,6 +213,7 @@ export default function App() {
   }
 
   const handleEndDay = () => {
+    dayEndedManually.current = true
     setDayStartTimestamp(null)
     localStorage.removeItem(STORAGE_KEYS.dayStart)
     localStorage.removeItem(STORAGE_KEYS.statuses)
@@ -220,7 +224,6 @@ export default function App() {
     setStatuses({})
     setCurrentView('morning-routine')
     setCreativeBlockStartTime(null)
-    setActiveTab('home')
   }
 
   const handleStartCreativeBlock = () => {
@@ -249,24 +252,23 @@ export default function App() {
         setCreativeBlockStartTime(null)
       }}
       dayActive={dayActive}
+      onStartDay={handleStartDay}
     />
   )
 
   return (
-    <div className="h-dvh overflow-hidden bg-black text-white">
-      <div
-        className="mx-auto flex h-dvh max-w-[430px] flex-col"
-        style={{ paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0px))' }}
-      >
-        <AnimatePresence>
-          {dayActive && (
-            <DayCountdownBar
-              key="day-bar"
-              remainingMs={Math.max(dayRemainingMs, 0)}
-              onEndDay={handleEndDay}
-            />
-          )}
-        </AnimatePresence>
+    <div
+      className="flex h-dvh flex-col bg-black text-white"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
+      {/* Scrollable content area */}
+      <div className="mx-auto flex w-full max-w-[430px] min-h-0 flex-1 flex-col">
+        {dayActive && (
+          <DayCountdownBar
+            remainingMs={Math.max(dayRemainingMs, 0)}
+            onEndDay={handleEndDay}
+          />
+        )}
         <main className="flex-1 min-h-0 flex flex-col">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -277,13 +279,6 @@ export default function App() {
               transition={{ duration: 0.12 }}
               className="flex-1 min-h-0 flex flex-col"
             >
-              {activeTab === 'home' && (
-                <DashboardTab
-                  onNavigateToFocus={() => setActiveTab('focus')}
-                  dayActive={dayActive}
-                  onStartDay={handleStartDay}
-                />
-              )}
               {activeTab === 'focus' && renderFocus()}
               {activeTab === 'state' && <StateTab />}
               {activeTab === 'badges' && <BadgesTab />}
@@ -293,6 +288,8 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Nav sits at the bottom of the flex column — no fixed positioning */}
       <BottomNav activeTab={activeTab} onChange={setActiveTab} />
       <DevPanel />
     </div>
