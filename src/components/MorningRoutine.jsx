@@ -147,14 +147,17 @@ export default function MorningRoutine({
     }
   }
 
-  // Flow mode — original linear sequence through ALL items one at a time
+  // Flow mode — original linear sequence with phase timeline
   if (mode === 'flow') {
     const nextItem = flatItems.find(item => !isComplete(statuses[item.id]))
     if (nextItem) {
       const currentIndex = flatItems.indexOf(nextItem)
+      // Figure out which category the current item belongs to
+      const currentCategoryIndex = items.findIndex(cat => cat.items.some(i => i.id === nextItem.id))
+
       return (
         <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between px-6 pt-6 pb-2">
+          <div className="flex items-center justify-between px-6 pt-6 pb-4">
             <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-white/30">Flow mode</p>
             <button
               type="button"
@@ -164,6 +167,49 @@ export default function MorningRoutine({
               Free
             </button>
           </div>
+
+          {/* Phase timeline */}
+          <div className="px-6 pb-4 space-y-3">
+            {items.map((category, i) => {
+              const catDone = category.items.every(item => isComplete(statuses[item.id]))
+              const catActive = i === currentCategoryIndex
+              const catUpcoming = i > currentCategoryIndex
+              const catItemsDone = category.items.filter(item => isComplete(statuses[item.id])).length
+
+              const dotClass = catDone
+                ? 'bg-white'
+                : catActive
+                ? 'bg-white/30 ring-2 ring-white/20'
+                : 'bg-white/[0.06]'
+
+              return (
+                <motion.div
+                  key={category.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 * i }}
+                  className="flex items-center gap-4"
+                >
+                  <div className="flex w-6 justify-center">
+                    <div className={`relative h-3 w-3 rounded-full ${dotClass}`}>
+                      {catActive && (
+                        <div className="absolute inset-0 animate-ping rounded-full bg-white/20" />
+                      )}
+                    </div>
+                  </div>
+                  <span className={`flex-1 text-[14px] font-medium ${
+                    catDone ? 'text-white/50' : catActive ? 'text-white' : 'text-white/20'
+                  }`}>
+                    {category.emoji} {category.title}
+                  </span>
+                  <span className="text-[12px] font-medium tabular-nums text-white/25">
+                    {catItemsDone}/{category.items.length}
+                  </span>
+                </motion.div>
+              )
+            })}
+          </div>
+
           <HabitCard
             item={nextItem}
             index={currentIndex}
