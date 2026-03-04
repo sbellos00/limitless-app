@@ -14,7 +14,8 @@ export default function DayCountdownBar({ remainingMs, onEndDay }) {
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
-      className="mx-4 mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+      style={{ marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+      className="mx-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
     >
       <div className="flex items-center justify-between gap-4">
         <div>
