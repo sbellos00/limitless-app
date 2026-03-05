@@ -6,6 +6,10 @@ import BadgesTab from './components/BadgesTab.jsx'
 import StateTab from './components/StateTab.jsx'
 import StatsTab from './components/StatsTab.jsx'
 import HistoryTab from './components/HistoryTab.jsx'
+import HomeScreen from './components/HomeScreen.jsx'
+import MentalGame from './components/MentalGame.jsx'
+import DopamineTracker from './components/DopamineTracker.jsx'
+import EpisodeBar from './components/EpisodeBar.jsx'
 import morningRoutine from './data/morningRoutine.js'
 import DevPanel from './components/DevPanel.jsx'
 import DayCountdownBar from './components/DayCountdownBar.jsx'
@@ -34,7 +38,8 @@ const loadJson = (key, fallback) => {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('focus')
+  const [activeTab, setActiveTab] = useState('home')
+  const [episode, setEpisode] = useState(null)
   const dayEndedManually = useRef(false)
   const [statuses, setStatuses] = useState(() => loadJson(STORAGE_KEYS.statuses, {}))
   const [currentView, setCurrentView] = useState(() =>
@@ -146,6 +151,11 @@ export default function App() {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [dayActive])
+
+  // Fetch episode data
+  useEffect(() => {
+    fetch('/api/episode').then(r => r.ok ? r.json() : null).then(d => { if (d?.number) setEpisode(d) }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (dayStartTimestamp == null) return
@@ -268,6 +278,7 @@ export default function App() {
     >
       {/* Scrollable content area */}
       <div className="mx-auto flex w-full max-w-[430px] min-h-0 flex-1 flex-col">
+        <EpisodeBar episode={episode} />
         {dayActive && (
           <DayCountdownBar
             remainingMs={Math.max(dayRemainingMs, 0)}
@@ -284,8 +295,11 @@ export default function App() {
               transition={{ duration: 0.12 }}
               className="flex-1 min-h-0 flex flex-col"
             >
+              {activeTab === 'home' && <HomeScreen />}
               {activeTab === 'focus' && renderFocus()}
               {activeTab === 'state' && <StateTab />}
+              {activeTab === 'mental' && <MentalGame />}
+              {activeTab === 'dopamine' && <DopamineTracker />}
               {activeTab === 'badges' && <BadgesTab />}
               {activeTab === 'stats' && <StatsTab />}
               {activeTab === 'history' && <HistoryTab />}

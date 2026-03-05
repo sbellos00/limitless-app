@@ -43,11 +43,18 @@ const HistoryIcon = () => (
   </svg>
 )
 
+const DopamineIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+)
+
 const tabs = [
+  { id: 'home', label: 'Home', Icon: HomeIcon },
   { id: 'focus', label: 'Flow', Icon: FocusIcon },
   { id: 'state', label: 'State', Icon: StateIcon },
-  { id: 'badges', label: 'Badges', Icon: BadgesIcon },
-  { id: 'stats', label: 'Votes', Icon: StatsIcon },
+  { id: 'mental', label: 'Mental', Icon: BadgesIcon },
+  { id: 'dopamine', label: 'Dopamine', Icon: DopamineIcon },
   { id: 'history', label: 'History', Icon: HistoryIcon },
 ]
 
