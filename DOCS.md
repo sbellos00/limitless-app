@@ -290,6 +290,21 @@ Static definitions: `server/data/badges.json` (35 exercises), `server/data/missi
 4. **Request logging** — all POST requests logged with timestamp and field keys
 5. **Crash protection** — `uncaughtException` and `unhandledRejection` handlers
 
+### Work Session Actions
+
+When Forge asks "What are we building?", the focus maps to one of 8 defined categories:
+
+**HyperSpace Creative Work** — content, briefs, prototypes, designs, experiments
+**Greatness Work** — Game of Greatness missions + development
+**Caldera Work** — client work, LinkedIn outreach, onboarding, growth, UpWork
+**Side-projects Work** — Limitless, Game of Greatness, UpWork Engine, White Mirror, etc.
+**Business Work** — meetings, hiring, market research, pitch decks, investing
+**Creative Exploration** — free design, references, mood boarding, intentional rabbit holes
+**Admin Work** — email, scheduling, invoicing, systems (CRMs, AI, automations)
+**Management Work** — strategy, financials, team syncs, delegation, project review
+
+Full list: `server/data/work-session-actions.md`
+
 ### Key Endpoints
 
 #### Read (GET)
@@ -466,7 +481,8 @@ server/
     ├── affirmations.json     ← VF Game affirmation statements
     ├── badges.json           ← 7 badge definitions + 35 exercises
     ├── missions.json         ← 105 pre-written missions
-    └── badge-progress.json   ← seeded empty progress (for fresh install)
+    ├── badge-progress.json        ← seeded empty progress (for fresh install)
+    └── work-session-actions.md    ← all available work session action types (8 categories)
 ```
 
 ---

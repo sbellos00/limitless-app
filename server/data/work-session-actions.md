@@ -2,7 +2,9 @@
 
 These are the available action types when logging a work session with Forge.
 
-When starting a session, Forge will ask "What are we building?" — the answer should map to one of these categories and a specific action below it. This gives the system structured context on how time is being spent across domains.
+When starting a session, Forge asks "What are we building?" — the answer maps to one of these categories and a specific action. This gives the system structured context on how time is being spent across domains, and makes session history meaningful over time.
+
+**8 categories:** HyperSpace Creative Work, Greatness Work, Caldera Work, Side-projects Work, Business Work, Creative Exploration, Admin Work, Management Work.
 
 ---
 
