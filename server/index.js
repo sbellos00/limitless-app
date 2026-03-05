@@ -75,15 +75,39 @@ const STUBS = {
   },
   'night-routine': {
     date: null, startedAt: null, completedAt: null,
-    letGoCompleted: false, letGoTimestamp: null,
-    nervousSystemCompleted: false, nervousSystemTimestamp: null,
-    planCompleted: false, planTimestamp: null, tomorrowPlan: '',
-    promptsReviewed: false, promptsTimestamp: null,
-    affirmationsReviewed: false, affirmationsTimestamp: null,
-    alterMemoriesCompleted: false, alterMemoriesTimestamp: null
+    windDown: {
+      lettingGoCompleted: false, lettingGoTimestamp: null,
+      nervousSystemCompleted: false, nervousSystemTimestamp: null,
+      bodyScanCompleted: false, bodyScanTimestamp: null
+    },
+    reflection: {
+      alterMemoriesCompleted: false, alterMemoriesTimestamp: null,
+      dayReviewCompleted: false, dayReviewTimestamp: null
+    },
+    planning: {
+      planCompleted: false, planTimestamp: null, planText: '',
+      planFinalized: false, planFinalizedTimestamp: null
+    },
+    bed: {
+      promptsReviewed: false, promptsTimestamp: null,
+      vfGameCompleted: false, visualizationCompleted: false,
+      lightsOut: false, lightsOutTimestamp: null
+    }
   },
   'midday-checkin': {
     date: null, triggeredAt: null, energyScore: null, notes: '', rawNotes: ''
+  },
+  'dopamine': {
+    date: null,
+    farming: { sessions: [], totalPoints: 0, totalMinutes: 0 },
+    overstimulation: { events: [], totalEvents: 0 },
+    screenTime: { totalMinutes: null, pickups: null, topApps: [], capturedAt: null },
+    netScore: 5
+  },
+  'episode': {
+    date: null, number: null,
+    title: '', previouslyOn: '', todaysArc: '',
+    plotPoints: [], rating: null, status: 'open'
   }
 }
 
@@ -286,8 +310,55 @@ app.get('/health', (req, res) => {
 
 // ─── GET endpoints ────────────────────────────────────────────────────────────
 
+// Migrate old flat night-routine format to new nested format
+const migrateNightRoutine = (data) => {
+  if (data.windDown) return data // already new format
+  const migrated = {
+    date: data.date, startedAt: data.startedAt, completedAt: data.completedAt,
+    windDown: {
+      lettingGoCompleted: data.letGoCompleted || false, lettingGoTimestamp: data.letGoTimestamp || null,
+      nervousSystemCompleted: data.nervousSystemCompleted || false, nervousSystemTimestamp: data.nervousSystemTimestamp || null,
+      bodyScanCompleted: false, bodyScanTimestamp: null
+    },
+    reflection: {
+      alterMemoriesCompleted: data.alterMemoriesCompleted || false, alterMemoriesTimestamp: data.alterMemoriesTimestamp || null,
+      dayReviewCompleted: false, dayReviewTimestamp: null
+    },
+    planning: {
+      planCompleted: data.planCompleted || false, planTimestamp: data.planTimestamp || null,
+      planText: data.tomorrowPlan || '', planFinalized: false, planFinalizedTimestamp: null
+    },
+    bed: {
+      promptsReviewed: data.promptsReviewed || false, promptsTimestamp: data.promptsTimestamp || null,
+      vfGameCompleted: false, visualizationCompleted: false,
+      lightsOut: false, lightsOutTimestamp: null
+    }
+  }
+  return migrated
+}
+
+// Auto plot-point hook for key decisions + boss encounters
+const addAutoPlotPoint = (description, type) => {
+  const today = todayStr()
+  let data = resetForNewDay('episode', today)
+  if (!data.date || !data.number) return // no active episode today
+  data.plotPoints.push({
+    id: randomUUID(), timestamp: nowIso(), description, type
+  })
+  writeJson('episode', data)
+}
+
 DAILY_FILES.forEach((name) => {
+  // night-routine has a custom GET handler with migration
+  if (name === 'night-routine') return
   app.get(`/${name}`, (req, res) => res.json(readJson(name)))
+})
+
+// Custom GET for night-routine with old→new format migration
+app.get('/night-routine', (req, res) => {
+  let data = readJson('night-routine')
+  data = migrateNightRoutine(data)
+  res.json(data)
 })
 
 app.get('/events', (req, res) => {
@@ -557,20 +628,41 @@ app.post('/events', (req, res) => {
 
 // ─── POST /night-routine ──────────────────────────────────────────────────────
 
-const NIGHT_ROUTINE_FIELDS = ['letGoCompleted', 'letGoTimestamp', 'nervousSystemCompleted', 'nervousSystemTimestamp',
-  'planCompleted', 'planTimestamp', 'tomorrowPlan', 'promptsReviewed', 'promptsTimestamp',
-  'affirmationsReviewed', 'affirmationsTimestamp', 'alterMemoriesCompleted', 'alterMemoriesTimestamp']
+const NIGHT_ROUTINE_PHASES = {
+  windDown: ['lettingGoCompleted', 'lettingGoTimestamp', 'nervousSystemCompleted', 'nervousSystemTimestamp', 'bodyScanCompleted', 'bodyScanTimestamp'],
+  reflection: ['alterMemoriesCompleted', 'alterMemoriesTimestamp', 'dayReviewCompleted', 'dayReviewTimestamp'],
+  planning: ['planCompleted', 'planTimestamp', 'planText', 'planFinalized', 'planFinalizedTimestamp'],
+  bed: ['promptsReviewed', 'promptsTimestamp', 'vfGameCompleted', 'visualizationCompleted', 'lightsOut', 'lightsOutTimestamp']
+}
 
 app.post('/night-routine', (req, res) => {
   const today = todayStr()
   let data = resetForNewDay('night-routine', today)
   data.date = today
+  data = migrateNightRoutine(data)
   if (!data.startedAt) data.startedAt = nowIso()
 
-  const allowed = pick(req.body, NIGHT_ROUTINE_FIELDS)
-  Object.assign(data, allowed)
+  const { phase, ...fields } = req.body
 
-  if (data.letGoCompleted && data.nervousSystemCompleted && data.planCompleted) {
+  if (phase && NIGHT_ROUTINE_PHASES[phase]) {
+    // Update specific phase
+    const allowed = pick(fields, NIGHT_ROUTINE_PHASES[phase])
+    Object.assign(data[phase], allowed)
+  } else {
+    // Bulk update — try to match fields to phases
+    for (const [phaseName, phaseFields] of Object.entries(NIGHT_ROUTINE_PHASES)) {
+      const allowed = pick(req.body, phaseFields)
+      if (Object.keys(allowed).length > 0) {
+        Object.assign(data[phaseName], allowed)
+      }
+    }
+  }
+
+  // Check completion
+  const allWindDown = data.windDown.lettingGoCompleted && data.windDown.nervousSystemCompleted
+  const allPlanning = data.planning.planCompleted
+  const allBed = data.bed.lightsOut
+  if (allWindDown && allPlanning && allBed) {
     data.completedAt = data.completedAt || nowIso()
   }
 
@@ -831,6 +923,10 @@ app.post('/key-decisions', (req, res) => {
   writeJson('votes', votesData)
 
   writeJson('key-decisions', data)
+
+  // Auto plot-point for active episode
+  addAutoPlotPoint(description, 'key-decision')
+
   res.json({
     ok: true,
     decision,
@@ -1130,6 +1226,11 @@ app.post('/boss-encounters', (req, res) => {
   }
   fs.appendFileSync(path.join(DATA_DIR, 'boss-encounters.jsonl'), JSON.stringify(entry) + '\n', 'utf8')
 
+  // Auto plot-point for active episode
+  if (faced) {
+    addAutoPlotPoint(`Boss faced: ${title || content.slice(0, 60)}`, 'boss-encounter')
+  }
+
   res.json({ ok: true, faced: faced || false, xpAwarded: xpGained })
 })
 
@@ -1151,6 +1252,225 @@ app.get('/boss-encounters', (req, res) => {
   } catch {
     res.json([])
   }
+})
+
+// ─── Dopamine Tracking ────────────────────────────────────────────────────────
+
+const DOPAMINE_OVERSTIM_TYPES = new Set(['sugar', 'alcohol', 'sr', 'social-media', 'gaming', 'streaming', 'caffeine'])
+const FARMING_POINT_CURVE = [
+  { min: 60, points: 15 }, { min: 30, points: 7 }, { min: 15, points: 3 }, { min: 5, points: 1 }
+]
+
+const calcDopamineNet = (data) => {
+  let score = 5
+  score += Math.floor(data.farming.totalPoints / 15)
+  score -= data.overstimulation.totalEvents
+  if (data.screenTime.totalMinutes !== null) {
+    const threshold = 120
+    if (data.screenTime.totalMinutes > threshold) {
+      score -= Math.floor((data.screenTime.totalMinutes - threshold) / 60)
+    } else {
+      score += 1
+    }
+  }
+  return Math.max(0, Math.min(10, score))
+}
+
+const calcFarmingPoints = (durationMinutes) => {
+  for (const tier of FARMING_POINT_CURVE) {
+    if (durationMinutes >= tier.min) return tier.points
+  }
+  return 0
+}
+
+app.post('/dopamine/farm-start', (req, res) => {
+  const today = todayStr()
+  let data = resetForNewDay('dopamine', today)
+  data.date = today
+
+  const session = {
+    id: randomUUID(),
+    startedAt: nowIso(),
+    endedAt: null,
+    durationMinutes: 0,
+    points: 0
+  }
+  data.farming.sessions.push(session)
+  writeJson('dopamine', data)
+  res.json({ ok: true, sessionId: session.id })
+})
+
+app.post('/dopamine/farm-end', (req, res) => {
+  const { sessionId } = req.body
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
+
+  const today = todayStr()
+  let data = resetForNewDay('dopamine', today)
+  data.date = today
+
+  const session = data.farming.sessions.find(s => s.id === sessionId && !s.endedAt)
+  if (!session) return res.status(400).json({ error: 'Active farming session not found' })
+
+  session.endedAt = nowIso()
+  const startMs = new Date(session.startedAt).getTime()
+  const endMs = new Date(session.endedAt).getTime()
+  session.durationMinutes = Math.round((endMs - startMs) / 60000)
+  session.points = calcFarmingPoints(session.durationMinutes)
+
+  data.farming.totalPoints = data.farming.sessions.reduce((s, sess) => s + sess.points, 0)
+  data.farming.totalMinutes = data.farming.sessions.reduce((s, sess) => s + sess.durationMinutes, 0)
+  data.netScore = calcDopamineNet(data)
+  writeJson('dopamine', data)
+
+  // Generate positive vote
+  if (session.points > 0) {
+    let votesData = resetForNewDay('votes', today)
+    votesData.date = today
+    votesData.votes.push({
+      id: randomUUID(), timestamp: nowIso(),
+      action: `Dopamine farming: ${session.durationMinutes}min unstimulated`,
+      category: 'mental-power', polarity: 'positive',
+      source: 'dopamine-farming', weight: Math.max(1, Math.round(session.points / 5))
+    })
+    writeJson('votes', votesData)
+  }
+
+  res.json({ ok: true, session, netScore: data.netScore })
+})
+
+app.post('/dopamine/overstimulation', (req, res) => {
+  const { type, notes } = req.body
+  if (!type) return res.status(400).json({ error: 'type required' })
+  if (!DOPAMINE_OVERSTIM_TYPES.has(type)) return res.status(400).json({ error: `type must be one of: ${[...DOPAMINE_OVERSTIM_TYPES].join(', ')}` })
+
+  const today = todayStr()
+  let data = resetForNewDay('dopamine', today)
+  data.date = today
+
+  data.overstimulation.events.push({
+    id: randomUUID(), timestamp: nowIso(), type, notes: notes || ''
+  })
+  data.overstimulation.totalEvents = data.overstimulation.events.length
+  data.netScore = calcDopamineNet(data)
+  writeJson('dopamine', data)
+
+  // Generate negative vote
+  let votesData = resetForNewDay('votes', today)
+  votesData.date = today
+  votesData.votes.push({
+    id: randomUUID(), timestamp: nowIso(),
+    action: `Overstimulation: ${type}${notes ? ' — ' + notes : ''}`,
+    category: 'mental-power', polarity: 'negative',
+    source: 'dopamine-tracking', weight: 1
+  })
+  writeJson('votes', votesData)
+
+  res.json({ ok: true, totalEvents: data.overstimulation.totalEvents, netScore: data.netScore })
+})
+
+app.post('/dopamine/screen-time', (req, res) => {
+  const { totalMinutes, pickups, topApps } = req.body
+  if (totalMinutes === undefined) return res.status(400).json({ error: 'totalMinutes required' })
+
+  const today = todayStr()
+  let data = resetForNewDay('dopamine', today)
+  data.date = today
+
+  data.screenTime.totalMinutes = totalMinutes
+  data.screenTime.pickups = pickups ?? null
+  data.screenTime.topApps = topApps || []
+  data.screenTime.capturedAt = nowIso()
+  data.netScore = calcDopamineNet(data)
+  writeJson('dopamine', data)
+  res.json({ ok: true, netScore: data.netScore })
+})
+
+// ─── Episode Framing ──────────────────────────────────────────────────────────
+
+const getNextEpisodeNumber = () => {
+  try {
+    const historyDirs = fs.readdirSync(HISTORY_DIR)
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+    let maxNum = 0
+    for (const dir of historyDirs) {
+      try {
+        const ep = JSON.parse(fs.readFileSync(path.join(HISTORY_DIR, dir, 'episode.json'), 'utf8'))
+        if (ep.number && ep.number > maxNum) maxNum = ep.number
+      } catch {}
+    }
+    // Also check current
+    const current = readJson('episode')
+    if (current.number && current.number > maxNum) maxNum = current.number
+    return maxNum + 1
+  } catch {
+    return 1
+  }
+}
+
+app.post('/episode', (req, res) => {
+  const { title, previouslyOn, todaysArc, rating, status } = req.body
+  const today = todayStr()
+  let data = resetForNewDay('episode', today)
+  data.date = today
+
+  // Auto-assign episode number on first creation
+  if (!data.number) data.number = getNextEpisodeNumber()
+
+  if (title !== undefined) data.title = title
+  if (previouslyOn !== undefined) data.previouslyOn = previouslyOn
+  if (todaysArc !== undefined) data.todaysArc = todaysArc
+  if (rating !== undefined) data.rating = rating
+  if (status !== undefined) data.status = status
+
+  writeJson('episode', data)
+  res.json({ ok: true, episode: data })
+})
+
+app.post('/episode/plot-point', (req, res) => {
+  const { description, type } = req.body
+  if (!description) return res.status(400).json({ error: 'description required' })
+
+  const today = todayStr()
+  let data = resetForNewDay('episode', today)
+  data.date = today
+  if (!data.number) data.number = getNextEpisodeNumber()
+
+  data.plotPoints.push({
+    id: randomUUID(),
+    timestamp: nowIso(),
+    description,
+    type: type || 'moment'
+  })
+
+  writeJson('episode', data)
+  res.json({ ok: true, plotPoints: data.plotPoints.length })
+})
+
+app.get('/episodes', (req, res) => {
+  const { limit } = req.query
+  const episodes = []
+
+  // Get from history
+  try {
+    const dirs = fs.readdirSync(HISTORY_DIR)
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+    for (const dir of dirs) {
+      try {
+        const ep = JSON.parse(fs.readFileSync(path.join(HISTORY_DIR, dir, 'episode.json'), 'utf8'))
+        if (ep.number) episodes.push(ep)
+      } catch {}
+    }
+  } catch {}
+
+  // Add today's episode
+  const current = readJson('episode')
+  if (current.number) episodes.push(current)
+
+  // Sort by number descending
+  episodes.sort((a, b) => (b.number || 0) - (a.number || 0))
+
+  const result = limit ? episodes.slice(0, parseInt(limit, 10)) : episodes
+  res.json(result)
 })
 
 // ─── Error handler ────────────────────────────────────────────────────────────
