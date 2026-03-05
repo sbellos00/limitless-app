@@ -1,19 +1,19 @@
 # Limitless System — Full Documentation
 
-**Last updated:** 2026-02-20  
-**Built by:** Stratos  
+**Last updated:** 2026-03-05
+**Built by:** Stratos
 **Repo:** github.com/stratosokaramanis-droid/limitless-app
 
 ---
 
 ## 1. What This Is
 
-Limitless is a personal daily operating system for Stef. It structures the entire day — morning routine, creative block, deep work sessions, night routine, bed routine — and tracks state across four dimensions: Sleep, Nutrition, Dopamine, and Mood.
+Limitless is a personal daily operating system for Stef. It structures the entire day — morning ritual, pre-creative check-in, deep work sessions, night routine, bed routine — and tracks state across sleep, nutrition, dopamine, mood, mental development, and inner work.
 
 The system has three layers:
 
-1. **A React PWA** — the app, accessed from Stef's phone via Cloudflare tunnel
-2. **AI agents on Telegram** — 6 specialized agents (Pulse, Dawn, Muse, Forge, Luna + Stratos the builder)
+1. **A React PWA** — accessed from Stef's phone via Cloudflare tunnel
+2. **AI agents on Telegram** — 6 specialized agents, each with a distinct role and personality
 3. **An Express file server** — the single write authority that bridges everything
 
 There is no traditional database. The backend is a set of **shared JSON files** on the local machine. The file server is the only thing that reads from and writes to these files. Both the app and the agents go through the file server API.
@@ -35,30 +35,26 @@ There is no traditional database. The backend is a set of **shared JSON files** 
                                  │
                     ┌────────────▼──────────────────┐
                     │   React Dev Server (Vite)      │
-                    │   localhost:3002                │
-                    │   Proxy: /api/* → :3001         │
+                    │   localhost:3002               │
+                    │   Proxy: /api/* → :3001        │
                     └────────────┬──────────────────┘
                                  │
                     ┌────────────▼──────────────────┐
-                    │   EXPRESS FILE SERVER           │
-                    │   localhost:3001                │
-                    │   ★ SINGLE WRITE AUTHORITY ★    │
-                    │   All reads and writes go here  │
+                    │   EXPRESS FILE SERVER          │
+                    │   localhost:3001               │
+                    │   ★ SINGLE WRITE AUTHORITY ★   │
+                    │   All reads and writes go here │
                     └────────────┬──────────────────┘
                                  │ reads/writes
                     ┌────────────▼──────────────────┐
                     │   SHARED DATA LAYER            │
                     │   ~/.openclaw/data/shared/     │
-                    │   11 JSON files + events.jsonl │
                     └────────────┬──────────────────┘
                                  │ via curl to :3001
-        ┌──────────┬─────────┬──┼──────────┬─────────┐
-        │          │         │  │          │         │
-   ┌────▼───┐ ┌───▼───┐ ┌──▼──▼──┐ ┌─────▼───┐ ┌──▼──┐
-   │ Pulse  │ │ Dawn  │ │ Muse   │ │ Forge   │ │Luna │
-   │  📊    │ │  🌅   │ │  🎨    │ │  ⚡     │ │ 🌙  │
-   └────────┘ └───────┘ └────────┘ └─────────┘ └─────┘
-   Telegram    Telegram   Telegram   Telegram   Telegram
+   ┌──────┬────────┬──────┬──────┼──────┬──────┐
+   │      │        │      │      │      │      │
+ Faith  Ruby   Forge   Luna   Void  Pulse  Stratos
+  🕊️    💎     ⚡      🌙     🪞    📊     🤙
 ```
 
 ### The Golden Rule
@@ -74,640 +70,413 @@ This prevents race conditions, ensures day-reset logic always runs, preserves hi
 
 ---
 
-## 3. How a Full Day Works
+## 3. The Agents
 
-### Morning Block
-
-1. **Wake Up** — Stef opens the app. The Today tab shows the morning routine as a sequence of cards.
-
-2. **Sleep Cycle Screenshot** — first card has a "📲 Open Pulse →" button. Stef taps it, Telegram opens the Pulse bot. He sends a screenshot of his Sleep Cycle data.
-   - **Pulse** extracts hours slept, sleep score, quality via vision
-   - Pulse POSTs to `http://localhost:3001/sleep-data`
-   - Pulse POSTs sleep votes to `http://localhost:3001/votes`
-   - Back in the app, Stef holds the DONE button (1 second) → app POSTs to `/api/morning-block-log`
-
-3. **Reading → Journaling → Review Plan → Sunlight Walk** — cards 2-5. Hold to confirm, skip if not done. Each interaction POSTs to `/api/morning-block-log`.
-
-4. **FitMind** — card 6 has a "📲 Open Pulse →" button. Same flow as Sleep Cycle but for the mental workout screenshot.
-   - **Pulse** extracts workout data, POSTs to `http://localhost:3001/fitmind-data` + votes
-
-5. **Shower → Visualization → Write Values** — cards 7-9. Same hold/skip pattern.
-
-6. **Completion Screen** — shows completed/skipped counts. "💬 Log Morning →" button deep-links to the **Dawn** bot on Telegram.
-   - **Dawn** reads today's data via API: `GET /morning-block-log`, `GET /sleep-data`, `GET /fitmind-data`
-   - Dawn opens with one sentence summarizing what she knows, then runs a focused check-in conversation
-   - Dawn POSTs to `http://localhost:3001/morning-state` (energy, clarity, emotional state, priority, resistance, overall score)
-   - Dawn POSTs votes to `http://localhost:3001/votes`
-   - Dawn POSTs event to `http://localhost:3001/events`
-
-### Creative Block (3 hours)
-
-7. After morning is complete, the app shows the creative block view. Stef taps "Start Block" — a timer starts. He has 3 hours of free creative time: design, read, build, eat, walk, whatever.
-
-8. When done (or whenever), Stef taps "💬 Check In →" → opens the **Muse** bot.
-   - **Muse** reads `GET /morning-state`, `GET /morning-block-log` for context
-   - Muse runs a loose, curious conversation: what happened, what was the energy, any creative output, did you eat
-   - Muse POSTs to `http://localhost:3001/creative-state` (activities, energyScore, nutritionScore, dopamineQuality, moodShift)
-   - Muse POSTs votes + event
-
-### Deep Work Sessions (3 × 90 minutes)
-
-9. Three timed work sessions, separated by 10-minute breaks and a 30-minute lunch break (between sessions 2 and 3).
-
-10. **Session start** — Stef DMs the **Forge** bot: "Session 1."
-    - Forge reads `GET /work-sessions`, `GET /morning-state`, `GET /creative-state`
-    - Forge: "Session 1. What are we building?" — extracts focus and evaluation criteria
-    - Forge POSTs to `http://localhost:3001/work-sessions/start`
-
-11. **Session end** — Stef DMs Forge: "Done."
-    - Forge: "Session done. What happened?" — extracts outcomes, scores flow and results
-    - `outcomeScore` (1-10): did the work actually move?
-    - `flowScore` (1-10): quality of focus
-    - `compositeScore` = outcomeScore × 0.6 + flowScore × 0.4
-    - If meal mentioned: extracts nutritionScore
-    - Forge POSTs to `http://localhost:3001/work-sessions/end` + votes + event
-
-12. Repeat for sessions 2 and 3.
-
-### Optional Mid-Day Check-In
-
-13. Stef can DM Forge anytime between sessions. Forge extracts what's useful, POSTs to `http://localhost:3001/midday-checkin`.
-
-### Free Time
-
-14. Nothing tracked unless Stef initiates conversation with an agent.
-
-### Night Routine
-
-15. Stef DMs the **Luna** bot.
-    - Luna reads ALL today's data: `GET /morning-state`, `GET /creative-state`, `GET /work-sessions`, `GET /votes`, `GET /night-routine`
-    - Luna opens with one sentence reflecting on the day from data
-    - Guides through: Letting Go meditation → nervous system regulation → next-day planning
-    - Each item POSTed to `http://localhost:3001/night-routine` as completed
-
-16. **Next-day planning** — Luna engages in real dialogue about tomorrow's priorities, then asks for the written plan (text or photo). Stores in `night-routine.tomorrowPlan`.
-
-### Bed Routine
-
-17. **Finalize plan** — send final plan to Luna (text or image)
-18. **Read prompts** — discuss with Luna or mark as reviewed
-19. **Read affirmations** — mark as reviewed
-20. **Alter Memories meditation** — Luna reads `GET /votes`, filters negative votes, returns them grouped by category for the meditation
-
----
-
-## 4. The Agents
-
-All agents run inside **OpenClaw** (AI gateway daemon). Each has its own Telegram bot, workspace, and session.
+All agents run inside **OpenClaw** (AI gateway daemon). Each has its own Telegram bot, workspace, and personality defined in `SOUL.md`.
 
 ### Agent Summary
 
 | Agent | ID | Bot | Model | Role |
 |-------|-----|-----|-------|------|
-| 📊 Pulse | `limitless-state` | `@limitless_pulse_bot` | sonnet | Screenshot extraction → data + votes |
-| 🌅 Dawn | `morning-checkin` | `@limitless_dawn_bot` | opus | Morning check-in → state + votes |
-| 🎨 Muse | `creative-checkin` | `@limitless_muse_bot` | opus | Creative debrief → state + votes |
-| ⚡ Forge | `work-session` | `@limitless_forge_bot` | sonnet | Work sessions → scores + votes |
-| 🌙 Luna | `night-routine` | `@limitless_luna_bot` | opus | Night routine + planning + vote summary |
-| 🤙 Stratos | `stratos` | main bot | sonnet | Builder. Does not participate in daily loop. |
+| 🕊️ Faith | `faith` | — | claude-opus-4-6 | Morning ritual + pre-creative block check-in (dual mode) |
+| 💎 Ruby | `ruby` | — | claude-opus-4-6 | Daytime: meals, key decisions, dopamine, screenshots, general chat |
+| ⚡ Forge | `work-session` | `@limitless_forge_bot` | gpt-5.2 | Work session start/end → scores + votes |
+| 🌙 Luna | `night-routine` | `@limitless_luna_bot` | claude-opus-4-6 | Night routine + planning + anytime vote translation |
+| 🪞 Void | `vf-game` | — | claude-opus-4-6 | VF Game — inner work mirror, key decisions |
+| 📊 Pulse | `limitless-state` | `@limitless_pulse_bot` | gpt-5.2 | Screenshot extraction → data + votes |
+| 🤙 Stratos | `stratos` | `@OStratosOKaramanisBot` | claude-sonnet-4-6 | Builder/engine. Not part of daily loop. |
+
+### Agent Personalities
+
+- **Faith** — calm, warm, present. A little playful when it calls for it. Meets you exactly where you are. Draws from Tolle, Rubin, Clarke, and Stef's own beliefs. Never therapy-speak.
+- **Ruby** — casual, attentive friend. Listens more than she talks. Catches patterns. Logs things naturally without making it feel clinical. Your connective tissue between blocks.
+- **Forge** — direct. No warmup. "Session 1. What are we building?" A training partner, not a cheerleader. Honest scores, no softening.
+- **Luna** — calm, honest, unhurried. Reflects on the full day. Guides the close. Translates anything you tell her into votes, anytime.
+- **Void** — the mirror. Minimal. Precise. One question at a time. Sits with discomfort. Makes the conviction scores meaningful by exploring first.
+- **Pulse** — pure sensor. Extracts numbers from screenshots, stores them, moves on. No commentary.
+
+### Agent Knowledge Files
+
+**Faith:**
+- `knowledge/power-of-now.md` — Tolle. For overthinking, anxiety, scatter.
+- `knowledge/the-creative-act.md` — Rubin. For creative block, resistance.
+- `knowledge/katie-clarke-40-minutes.md` — Clarke framework. For fear, self-doubt.
+- `knowledge/katie-clarke-video-game.md` — Clarke levels. For feeling stuck.
+- `knowledge/beliefs.md` — Stef's own beliefs. For reflection.
+
+**Void:**
+- `knowledge/life-is-a-video-game-summary.md` — Core Katie Clarke framework.
+- `knowledge/life-is-a-video-game-full.md` — Full transcript reference.
 
 ### Agent Read/Write Matrix
 
-Every agent reads and writes exclusively through the file server API (`http://localhost:3001`).
-
-| Agent | Reads (GET) | Writes (POST) |
-|-------|-------------|---------------|
-| Pulse | — | `/sleep-data`, `/fitmind-data`, `/votes`, `/events` |
-| Dawn | `/morning-block-log`, `/sleep-data`, `/fitmind-data` | `/morning-state`, `/votes`, `/events` |
-| Muse | `/morning-state`, `/morning-block-log` | `/creative-state`, `/votes`, `/events` |
+| Agent | Reads | Writes |
+|-------|-------|--------|
+| Faith | `/morning-state` (to detect check-in type) | `/morning-state`, `/creative-state`, `/sleep-data`, `/votes`, `/events` |
+| Ruby | — | `/nutrition`, `/key-decisions`, `/dopamine/*`, `/boss-encounters`, `/sleep-data`, `/fitmind-data`, `/events` |
 | Forge | `/work-sessions`, `/morning-state`, `/creative-state` | `/work-sessions/start`, `/work-sessions/end`, `/votes`, `/events`, `/midday-checkin` |
-| Luna | `/morning-state`, `/creative-state`, `/work-sessions`, `/votes`, `/night-routine` | `/night-routine`, `/events` |
-
-### Agent Workspaces
-
-Each agent has a workspace with:
-- `SOUL.md` — personality, conversation style, full operating instructions, API usage
-- `AGENTS.md` — quick reference card
-
-```
-~/.openclaw/agents/
-├── limitless-state/workspace/     (Pulse)
-├── morning-checkin/workspace/     (Dawn)
-├── creative-checkin/workspace/    (Muse)
-├── work-session/workspace/        (Forge)
-└── night-routine/workspace/       (Luna)
-```
-
-### Personality Summary
-
-- **Pulse** — minimal sensor. One-line confirmations. Extracts and moves on.
-- **Dawn** — warm coach. States what she knows, asks how it felt. Direct, no celebration.
-- **Muse** — curious friend. "How was the creative block?" Loose, follows threads.
-- **Forge** — sharp training partner. "Session 1. What are we building?" No warmup, no filler.
-- **Luna** — calm presence. Reflects on the day, guides the wind-down. Warm but honest.
+| Luna | `/morning-state`, `/creative-state`, `/work-sessions`, `/votes`, `/night-routine` | `/night-routine`, `/votes`, `/events` |
+| Void | `/vf-game`, `/key-decisions`, `/votes`, `/boss-encounters` | `/vf-game`, `/key-decisions`, `/boss-encounters`, `/votes` |
+| Pulse | — | `/sleep-data`, `/fitmind-data`, `/votes`, `/events` |
 
 ---
 
-## 5. OpenClaw Configuration
+## 4. How a Full Day Works
 
-**Config file:** `~/.openclaw/openclaw.json` (chmod 600, never committed to git)
+### Morning — Faith (dual mode)
 
-### Multi-Bot Routing
+Faith detects what kind of check-in is needed by reading `GET /morning-state`:
+- If `date` is NOT today → **Morning Check-In**
+- If `date` IS today → **Pre-Creative Block Check-In**
 
-OpenClaw supports multiple Telegram bots through named accounts under `channels.telegram.accounts`. Each account has its own bot token and DM policy. Bindings route messages from each account to the correct agent.
+**Morning Check-In:**
+1. Greets warmly. Asks how he's feeling, how he slept.
+2. Shares a quote calibrated to his mood (from knowledge files).
+3. Sends him toward reading (The Creative Act or Power of Now).
+4. Links to the app.
+5. Writes: `/morning-state` (energy, clarity, emotional state, morning score) + `/sleep-data` (if sleep mentioned) + `/votes` + `/events`.
 
-```json
-{
-  "channels": {
-    "telegram": {
-      "botToken": "<stratos-token>",
-      "accounts": {
-        "pulse": { "botToken": "<pulse-token>", "dmPolicy": "allowlist", "allowFrom": ["5345586297"] },
-        "dawn":  { "botToken": "<dawn-token>",  "dmPolicy": "allowlist", "allowFrom": ["5345586297"] },
-        "muse":  { "botToken": "<muse-token>",  "dmPolicy": "allowlist", "allowFrom": ["5345586297"] },
-        "forge": { "botToken": "<forge-token>", "dmPolicy": "allowlist", "allowFrom": ["5345586297"] },
-        "luna":  { "botToken": "<luna-token>",  "dmPolicy": "allowlist", "allowFrom": ["5345586297"] }
-      }
-    }
-  },
-  "bindings": [
-    { "agentId": "stratos",          "match": { "channel": "telegram", "peer": { "kind": "direct", "id": "5345586297" } } },
-    { "agentId": "stratos",          "match": { "channel": "telegram", "peer": { "kind": "direct", "id": "8539676437" } } },
-    { "agentId": "limitless-state",  "match": { "channel": "telegram", "accountId": "pulse" } },
-    { "agentId": "morning-checkin",  "match": { "channel": "telegram", "accountId": "dawn" } },
-    { "agentId": "creative-checkin", "match": { "channel": "telegram", "accountId": "muse" } },
-    { "agentId": "work-session",     "match": { "channel": "telegram", "accountId": "forge" } },
-    { "agentId": "night-routine",    "match": { "channel": "telegram", "accountId": "luna" } }
-  ]
-}
-```
+**Pre-Creative Block Check-In:**
+1. Quick energy read after morning routine.
+2. Sets intention for the creative block.
+3. One line to send him in.
+4. Writes: `/creative-state` + `/events`.
 
-### Session Management
+### Daytime — Ruby
 
-- `session.dmScope: "per-channel-peer"` — each user gets their own session per agent
-- `session.reset.mode: "daily", atHour: 3` — all sessions reset at 3am (matches Stef's night owl schedule)
-- Agents are also instructed in SOUL.md to ignore old conversation history and treat today's API data as truth
+Ruby is always available. No structured check-in — she's just there.
+
+She logs:
+- **Meals** → `/nutrition` (estimates nutrition score 1-10)
+- **Key decisions** → `/key-decisions` (with type + multiplier: resist 3x, persist 2x, face-boss 5x, etc.)
+- **Dopamine events** → `/dopamine/overstimulation` or `/dopamine/farm-start/end`
+- **Screenshots** → extracts Sleep Cycle, FitMind, or screen time data via vision
+- **Boss encounters** → `/boss-encounters`
+- **Notable moments** → `/events`
+
+She fills the space between all the structured agents. Pure connective tissue.
+
+### Work Sessions — Forge
+
+Three 90-minute deep work sessions.
+
+**Session start** — DM Forge:
+- "Session [N]. What are we building?"
+- Extracts focus + evaluation criteria
+- POSTs to `/work-sessions/start`
+
+**Session end** — DM Forge:
+- "Session done. What happened?"
+- Extracts outcomes, scores flow and results
+- `outcomeScore` (1-10) + `flowScore` (1-10) → `compositeScore = outcome × 0.6 + flow × 0.4`
+- POSTs to `/work-sessions/end` + `/votes` + `/events`
+
+### Anytime — Luna (Vote Translation)
+
+Luna isn't just for the night routine. Message her any time of day — a win, a slip, a weird moment, whatever. She listens, acknowledges, and translates it into votes.
+
+Vote categories: `mental-power`, `creative-vision`, `physical-mastery`, `social-influence`, `strategic-mind`, `emotional-sovereignty`, `relentless-drive`.
+
+### Anytime — Void (Key Decisions + VF Game)
+
+Void handles two things:
+
+**Key decisions (anytime):**
+When you face or overcome a resistance pattern — log it. Void acknowledges it with weight, logs via `/key-decisions`, moves on.
+
+**VF Game (user-triggered only):**
+End-of-day inner work exploration. For each affirmation, Void asks "sit with this — what comes up?" before asking for a conviction score. Makes the score mean something.
+
+### Night Routine — Luna
+
+Luna opens with one sentence reading the full day from API data. Then guides:
+1. Letting Go meditation
+2. Nervous system regulation
+3. Next-day planning (real dialogue → written plan)
+4. Bed: read prompts, affirmations, Alter Memories (negative votes from the day)
 
 ---
 
-## 6. The File Server
+## 5. The VF Game
 
-**Location:** `~/limitless-app/server/index.js`  
-**Port:** 3001  
-**Start:** `npm run server` or `npm run dev:all` (both app + server)
+User-triggered conviction tracking centered on the 7 badge identity statements. The exploration comes before the score.
+
+### Flow (via Void)
+
+1. Void reads today's key decisions and votes for context.
+2. For each affirmation: "Sit with this: *[statement]*. What comes up?"
+3. Explores resistance, numbness, openness — asks one question at a time.
+4. THEN: asks for conviction score (1-10). Now it means something.
+5. Surfaces key decisions as evidence connected to each affirmation.
+6. Optional: names and logs boss encounters that surfaced.
+7. Brief close.
+8. Submits via `POST /vf-game`.
+
+### XP Impact
+
+| Conviction | Effect |
+|-----------|--------|
+| ≥ 8 | +10 XP for that badge |
+| 4-7 | No change |
+| ≤ 3 | -5 XP (can't go below 0) |
+
+### Key Decision Multipliers
+
+| Type | Multiplier | When |
+|------|-----------|------|
+| `resist` | 3x | Resisted urge/addiction/habit |
+| `persist` | 2x | Kept going when wanted to stop |
+| `reframe` | 2x | Stepped back from negative loop |
+| `ground` | 2x | Breathed through overwhelm |
+| `face-boss` | 5x | Confronted a resistance pattern directly |
+| `recenter` | 2x | Called energy back |
+
+---
+
+## 6. The Mental Badges System
+
+A skill tree for 7 mental capabilities. Exercises, missions, XP progression, boss encounters.
+
+### The 7 Badges
+
+| Badge | Slug | Identity Statement |
+|-------|------|--------------------|
+| Reality Distortion Field | `rdf` | "I am someone whose conviction reshapes the environment around me." |
+| Frame Control | `frame-control` | "My frame is mine. No one enters it without my permission." |
+| Fearlessness | `fearlessness` | "I move toward what scares me. Fear is my compass, not my cage." |
+| Aggression | `aggression` | "I refuse to be domesticated. My intensity comes from love for what could be." |
+| Carefreeness | `carefreeness` | "I play full out and hold on to nothing. Life is a game I'm winning by enjoying." |
+| Presence | `presence` | "I am here. Fully. The present moment is the only place where life actually happens." |
+| Bias to Action | `bias-to-action` | "I move. While others plan, I act. Speed is my weapon. Momentum is my fuel." |
+
+### Tier Progression
+
+| Tier | Name | XP Required |
+|------|------|-------------|
+| 1 | Initiate | 0 |
+| 2 | Apprentice | 750 |
+| 3 | Practitioner | 3,000 |
+| 4 | Adept | 10,000 |
+| 5 | Master | 30,000 |
+
+### XP Economy
+
+| Source | XP |
+|--------|-----|
+| Exercise completed | +5 |
+| Mission success | +15 to +100 (scales with tier) |
+| Mission fail | +3 to +20 (you tried) |
+| VF conviction ≥ 8 | +10 |
+| VF conviction ≤ 3 | -5 |
+| Boss encounter logged | +25 |
+
+Streak multipliers: 7 days = 1.25x, 14 days = 1.5x, 30 days = 2.0x.
+
+Static definitions: `server/data/badges.json` (35 exercises), `server/data/missions.json` (105 missions).
+
+---
+
+## 7. The File Server
+
+**Location:** `~/limitless-app/server/index.js`
+**Port:** 3001
+**Start:** `npm run server` or `npm run dev:all`
 
 ### Design Principles
 
 1. **Single write authority** — the ONLY process that writes to `~/.openclaw/data/shared/`
-2. **Field whitelisting** — every POST endpoint only accepts known fields (prevents injection)
-3. **Deep copy stubs** — uses `structuredClone()` for all stub copies (prevents shared reference bugs)
-4. **Idempotent archiving** — day transition archives yesterday's data exactly once
-5. **Request logging** — all POST requests logged with timestamp and field keys
-6. **Crash protection** — `uncaughtException` and `unhandledRejection` handlers prevent silent death
+2. **Field whitelisting** — every POST endpoint only accepts known fields
+3. **Idempotent archiving** — day transition archives yesterday's data exactly once
+4. **Request logging** — all POST requests logged with timestamp and field keys
+5. **Crash protection** — `uncaughtException` and `unhandledRejection` handlers
 
-### All Endpoints
+### Key Endpoints
 
-#### Read endpoints (GET)
+#### Read (GET)
 
 | Endpoint | Returns |
 |----------|---------|
-| `GET /health` | `{ ok, uptime, dataDir, files, timestamp }` |
-| `GET /morning-block-log` | Today's morning routine interactions |
-| `GET /creative-block-log` | Today's creative block status |
-| `GET /sleep-data` | Today's sleep data (from Pulse) |
-| `GET /fitmind-data` | Today's FitMind data (from Pulse) |
-| `GET /morning-state` | Today's morning state (from Dawn) |
-| `GET /creative-state` | Today's creative state (from Muse) |
-| `GET /work-sessions` | Today's work sessions (from Forge) |
-| `GET /votes` | Today's votes (from all agents) |
-| `GET /night-routine` | Today's night routine (from Luna) |
-| `GET /midday-checkin` | Today's midday check-in (from Forge) |
-| `GET /events` | All events (events.jsonl parsed as JSON array) |
-| `GET /history` | List of available archive dates |
+| `GET /health` | Server status, uptime, data dir |
+| `GET /morning-state` | Today's morning check-in (Faith) |
+| `GET /creative-state` | Today's pre-creative check-in (Faith) |
+| `GET /sleep-data` | Today's sleep data |
+| `GET /fitmind-data` | Today's FitMind data |
+| `GET /work-sessions` | Today's work sessions (Forge) |
+| `GET /votes` | Today's all votes |
+| `GET /night-routine` | Tonight's night routine progress |
+| `GET /nutrition` | Today's meals (Ruby) |
+| `GET /dopamine` | Today's dopamine tracking (Ruby) |
+| `GET /key-decisions` | Today's key decisions (Ruby/Void) |
+| `GET /boss-encounters` | All boss encounters (append-only) |
+| `GET /vf-game` | Today's VF Game sessions (Void) |
+| `GET /badge-progress` | Cumulative badge XP and tiers |
+| `GET /badge-missions` | Active + completed missions |
+| `GET /badge-daily` | Today's badge exercises and attempts |
+| `GET /badges` | All badge definitions + exercises |
+| `GET /history` | List of archived dates |
 | `GET /history/:date` | All files for a specific date |
-| `GET /history/:date/:file` | Specific file for a specific date |
 
-All GET endpoints return the stub (default shape with nulls) if the file is missing or corrupt. They never crash.
+#### Write (POST)
 
-#### Write endpoints (POST)
+| Endpoint | Called by |
+|----------|----------|
+| `POST /morning-state` | Faith |
+| `POST /creative-state` | Faith |
+| `POST /sleep-data` | Faith, Ruby, Pulse |
+| `POST /fitmind-data` | Ruby, Pulse |
+| `POST /nutrition` | Ruby, Forge |
+| `POST /key-decisions` | Ruby, Void |
+| `POST /dopamine/overstimulation` | Ruby |
+| `POST /dopamine/farm-start` | Ruby |
+| `POST /dopamine/farm-end` | Ruby |
+| `POST /dopamine/screen-time` | Ruby, Pulse |
+| `POST /boss-encounters` | Ruby, Void, Luna |
+| `POST /vf-game` | Void |
+| `POST /work-sessions/start` | Forge |
+| `POST /work-sessions/end` | Forge |
+| `POST /midday-checkin` | Forge |
+| `POST /votes` | All agents |
+| `POST /events` | All agents |
+| `POST /night-routine` | Luna |
+| `POST /badge-progress/exercise` | Any agent |
+| `POST /badge-missions/assign` | Any agent / user-triggered |
+| `POST /badge-missions/complete` | Any agent |
 
-| Endpoint | Called by | Body | What it does |
-|----------|----------|------|-------------|
-| `POST /morning-block-log` | App | `{ itemId, status, timestamp }` | Logs card done/skip, recounts |
-| `POST /creative-block-log` | App | `{ status, startedAt?, completedAt? }` | Updates creative block state |
-| `POST /sleep-data` | Pulse | `{ source, hoursSlept, quality, sleepScore, ... }` | Stores sleep extraction |
-| `POST /fitmind-data` | Pulse | `{ source, workoutCompleted, duration, type, score, ... }` | Stores FitMind extraction |
-| `POST /morning-state` | Dawn | `{ energyScore, mentalClarity, emotionalState, ... }` | Stores morning check-in |
-| `POST /creative-state` | Muse | `{ activities, energyScore, nutritionScore, dopamineQuality, ... }` | Stores creative check-in |
-| `POST /work-sessions/start` | Forge | `{ sessionId, focus, evaluationCriteria }` | Starts a work session |
-| `POST /work-sessions/end` | Forge | `{ sessionId, outcomes, outcomeScore, flowScore, compositeScore, meal?, nutritionScore? }` | Completes a work session |
-| `POST /votes` | All agents | `{ votes: [{ action, category, polarity, source }] }` | Appends validated votes |
-| `POST /events` | All agents | `{ events: [{ source, type, payload }] }` | Appends timestamped events |
-| `POST /night-routine` | Luna | `{ letGoCompleted?, planCompleted?, tomorrowPlan?, ... }` | Updates night routine items |
-| `POST /midday-checkin` | Forge | `{ energyScore, notes, rawNotes }` | Stores optional mid-day check-in |
-
-#### Day Reset Logic
+### Day Reset Logic
 
 Every POST handler calls `resetForNewDay(fileName, today)`:
-1. Read the current file
-2. If `data.date !== today` and `data.date !== null`:
-   - Call `archiveDay(data.date)` — copies ALL files to `history/YYYY-MM-DD/`
-   - `archiveDay` is **idempotent**: skips if the history directory already exists
-   - Returns a fresh stub with `date = today`
-3. If `data.date === null`: returns a fresh stub
-4. If `data.date === today`: returns the existing data (no reset needed)
-
-#### Vote Validation
-
-`POST /votes` validates each vote before storing:
-- `category` must be one of: `nutrition`, `work`, `mental-power`, `personality`, `creativity`, `physical`, `relationships`
-- `polarity` must be `positive` or `negative` (neutral = don't store)
-- `action` must be non-empty
-- Invalid votes are silently skipped (not rejected — the valid ones still get stored)
-- Each vote gets a server-generated UUID and timestamp
+1. Read current file. If `data.date !== today`:
+   - Archive all files to `history/YYYY-MM-DD/` (idempotent — skips if exists)
+   - Return fresh stub with `date = today`
+2. If `data.date === today`: return existing data.
 
 ---
 
-## 7. The Shared Data Layer
+## 8. The Shared Data Layer
 
 **Directory:** `~/.openclaw/data/shared/`
 
-### File Ownership
+Full schema with all fields and types: see `server/DATA_SCHEMA.md`.
 
-| File | Written by | Read by |
-|------|-----------|---------|
-| `morning-block-log.json` | App (via file server) | Dawn |
-| `creative-block-log.json` | App (via file server) | — |
-| `sleep-data.json` | Pulse (via file server) | Dawn, State tab |
-| `fitmind-data.json` | Pulse (via file server) | Dawn, State tab |
-| `morning-state.json` | Dawn (via file server) | Muse, Forge, Luna, State tab |
-| `creative-state.json` | Muse (via file server) | Forge, Luna, State tab |
-| `work-sessions.json` | Forge (via file server) | Luna, State tab |
-| `votes.json` | Pulse, Dawn, Muse, Forge (via file server) | Luna, Stats tab (future) |
-| `night-routine.json` | Luna (via file server) | Luna |
-| `midday-checkin.json` | Forge (via file server) | — |
-| `events.jsonl` | All agents (via file server) | Analytics (future) |
+### File Overview
 
-### Data Schemas
-
-**morning-block-log.json**
-```json
-{
-  "date": "2026-02-20",
-  "startedAt": "2026-02-20T07:15:00.000Z",
-  "completedAt": null,
-  "items": [
-    { "id": "sleep-screenshot", "status": "done", "timestamp": "2026-02-20T07:16:00.000Z" },
-    { "id": "journaling", "status": "skipped", "timestamp": "2026-02-20T07:46:00.000Z" }
-  ],
-  "completedCount": 8,
-  "skippedCount": 1
-}
-```
-
-**sleep-data.json**
-```json
-{
-  "date": "2026-02-20",
-  "createdAt": "2026-02-20T07:20:00.000Z",
-  "source": "sleep-cycle-screenshot",
-  "hoursSlept": 7.5,
-  "quality": "good",
-  "sleepScore": 82,
-  "wakeUpMood": "refreshed",
-  "notes": "consistent deep sleep phases",
-  "rawExtracted": { "deepSleep": "1h42m", "rem": "2h10m" }
-}
-```
-
-**fitmind-data.json**
-```json
-{
-  "date": "2026-02-20",
-  "createdAt": "2026-02-20T08:45:00.000Z",
-  "source": "fitmind-screenshot",
-  "workoutCompleted": true,
-  "duration": "20min",
-  "type": "focus-training",
-  "score": 88,
-  "notes": ""
-}
-```
-
-**morning-state.json**
-```json
-{
-  "date": "2026-02-20",
-  "createdAt": "2026-02-20T09:30:00.000Z",
-  "updatedAt": "2026-02-20T09:30:00.000Z",
-  "energyScore": 8,
-  "mentalClarity": 7,
-  "emotionalState": "grounded",
-  "insights": ["Noticed resistance during visualization"],
-  "dayPriority": "Creative block first, Caldera proposals later",
-  "resistanceNoted": true,
-  "resistanceDescription": "Visualization kept slipping into task-mode",
-  "overallMorningScore": 7.5,
-  "rawNotes": "Conversation summary"
-}
-```
-
-**creative-state.json**
-```json
-{
-  "date": "2026-02-20",
-  "createdAt": "2026-02-20T13:00:00.000Z",
-  "updatedAt": "2026-02-20T13:00:00.000Z",
-  "activities": ["design exploration", "reading"],
-  "energyScore": 7,
-  "creativeOutput": "HyperSpace visual direction explored",
-  "insights": ["Gravitate to monochrome when thinking about identity"],
-  "nutrition": { "logged": true, "meal": "eggs, coffee, fruit", "notes": "light, felt good" },
-  "nutritionScore": 8,
-  "dopamineQuality": 8,
-  "moodShift": "started flat, ended energized",
-  "rawNotes": "Summary"
-}
-```
-
-**work-sessions.json**
-```json
-{
-  "date": "2026-02-20",
-  "sessions": [
-    {
-      "id": 1,
-      "startedAt": "2026-02-20T13:30:00.000Z",
-      "endedAt": "2026-02-20T15:00:00.000Z",
-      "durationMinutes": 90,
-      "focus": "HyperSpace landing page",
-      "evaluationCriteria": "Ship working hero section + test on mobile",
-      "outcomes": "Hero section shipped, responsive on all breakpoints",
-      "outcomeScore": 8,
-      "flowScore": 7,
-      "compositeScore": 7.6,
-      "meal": null,
-      "nutritionScore": null,
-      "notes": ""
-    }
-  ],
-  "totalSessions": 3,
-  "completedSessions": 1,
-  "lunchBreakLogged": false,
-  "lunchMeal": null,
-  "lunchNutritionScore": null
-}
-```
-
-**votes.json**
-```json
-{
-  "date": "2026-02-20",
-  "votes": [
-    {
-      "id": "uuid",
-      "timestamp": "2026-02-20T07:20:00.000Z",
-      "action": "Slept 7.5h, score 82",
-      "category": "physical",
-      "polarity": "positive",
-      "source": "limitless-state",
-      "weight": 1
-    },
-    {
-      "id": "uuid",
-      "timestamp": "2026-02-20T09:30:00.000Z",
-      "action": "8/9 morning block completed",
-      "category": "work",
-      "polarity": "positive",
-      "source": "morning-checkin",
-      "weight": 1
-    }
-  ]
-}
-```
-
-**night-routine.json**
-```json
-{
-  "date": "2026-02-20",
-  "startedAt": "2026-02-20T22:00:00.000Z",
-  "completedAt": "2026-02-20T23:30:00.000Z",
-  "letGoCompleted": true,
-  "letGoTimestamp": "2026-02-20T22:15:00.000Z",
-  "nervousSystemCompleted": true,
-  "nervousSystemTimestamp": "2026-02-20T22:30:00.000Z",
-  "planCompleted": true,
-  "planTimestamp": "2026-02-20T23:00:00.000Z",
-  "tomorrowPlan": "Morning: creative block focus on HyperSpace branding. Sessions: 1) landing page, 2) client proposals, 3) LinkedIn outreach.",
-  "promptsReviewed": true,
-  "promptsTimestamp": "2026-02-20T23:15:00.000Z",
-  "affirmationsReviewed": true,
-  "affirmationsTimestamp": "2026-02-20T23:20:00.000Z",
-  "alterMemoriesCompleted": true,
-  "alterMemoriesTimestamp": "2026-02-20T23:30:00.000Z"
-}
-```
-
-**midday-checkin.json**
-```json
-{
-  "date": "2026-02-20",
-  "triggeredAt": "2026-02-20T15:15:00.000Z",
-  "energyScore": 6,
-  "notes": "Lunch was heavy, feeling slow. Need to move before session 3.",
-  "rawNotes": ""
-}
-```
-
-**creative-block-log.json**
-```json
-{
-  "date": "2026-02-20",
-  "startedAt": "2026-02-20T10:00:00.000Z",
-  "completedAt": "2026-02-20T13:00:00.000Z",
-  "status": "completed"
-}
-```
-
-**events.jsonl** (one JSON object per line, append-only)
-```jsonl
-{"timestamp":"2026-02-20T09:30:00Z","source":"morning-checkin","type":"morning_completed","payload":{"date":"2026-02-20","overallMorningScore":7.5}}
-{"timestamp":"2026-02-20T13:00:00Z","source":"creative-checkin","type":"creative_block_completed","payload":{"date":"2026-02-20","energyScore":7}}
-{"timestamp":"2026-02-20T15:00:00Z","source":"work-session","type":"session_completed","payload":{"sessionId":1,"compositeScore":7.6}}
-```
+| File | Reset | Written by |
+|------|-------|-----------|
+| `morning-state.json` | Daily | Faith |
+| `creative-state.json` | Daily | Faith |
+| `sleep-data.json` | Daily | Faith, Ruby, Pulse |
+| `fitmind-data.json` | Daily | Ruby, Pulse |
+| `work-sessions.json` | Daily | Forge |
+| `votes.json` | Daily | All agents |
+| `nutrition.json` | Daily | Ruby, Forge |
+| `dopamine.json` | Daily | Ruby |
+| `night-routine.json` | Daily | Luna |
+| `midday-checkin.json` | Daily | Forge |
+| `vf-game.json` | Daily | Void |
+| `badge-daily.json` | Daily | Badge XP engine |
+| `badge-progress.json` | **Persistent** | Badge XP engine |
+| `badge-missions.json` | **Persistent** | Badge mission engine |
+| `episode.json` | Daily | (episode framing — spec written, not yet live) |
+| `events.jsonl` | Append-only | All agents |
+| `boss-encounters.jsonl` | Append-only | Ruby, Void, Luna |
 
 ---
 
-## 8. The Vote System
+## 9. The Vote System
 
-Every agent (except Luna) emits votes after each session. Votes are the raw signal of the day — labeled actions with clear positive or negative polarity, organized by category.
+Every agent (except Void — votes auto-generated from key decisions) emits votes. Luna reads them for Alter Memories at bedtime.
+
+### Vote Shape
+
+```json
+{
+  "id": "uuid",
+  "timestamp": "ISO-8601",
+  "action": "Short description",
+  "category": "mental-power",
+  "polarity": "positive",
+  "source": "forge",
+  "weight": 1
+}
+```
 
 ### Vote Categories
 
-| Category | What it tracks |
-|----------|---------------|
-| `nutrition` | Meal quality, eating habits |
-| `work` | Task completion, output quality |
-| `mental-power` | Focus, flow, mental training, dopamine quality |
-| `personality` | Resistance faced, growth signals |
-| `creativity` | Creative output, creative risk |
-| `physical` | Sleep, exercise, physical state |
-| `relationships` | Social interactions (future) |
+`mental-power` | `creative-vision` | `physical-mastery` | `social-influence` | `strategic-mind` | `emotional-sovereignty` | `relentless-drive` | `work` | `nutrition`
 
-### Who Emits What
+### Rules
 
-| Agent | Vote Categories |
-|-------|----------------|
-| Pulse | `physical` (sleep quality, hours), `mental-power` (FitMind completion) |
-| Dawn | `work` (morning block completion), `mental-power` (energy level), `personality` (resistance faced) |
-| Muse | `nutrition` (meal quality), `mental-power` (dopamine quality), `creativity` (creative output) |
-| Forge | `work` (outcome score), `mental-power` (flow score), `nutrition` (session meal) |
-| Luna | **Does not emit votes** — reads and surfaces them |
-
-### Vote Rules
-
-- **Neutral = skip.** Don't store neutral votes. They add noise.
-- Polarity is binary: `positive` or `negative`. No middle ground.
-- `weight` defaults to 1. Future: some actions will have higher weight.
-- Luna surfaces negative votes for the Alter Memories meditation at bedtime.
-
----
-
-## 9. The State Metric
-
-The State tab shows four sub-metrics and one composed STATE score.
-
-### Four Pillars
-
-| Metric | Weight | Data Sources |
-|--------|--------|-------------|
-| **Sleep** | 30% | `sleep-data.json` → hoursSlept (60%) + sleepScore (40%) |
-| **Dopamine** | 25% | FitMind score + morning completion rate + `dopamineQuality` from Muse + work session flowScores |
-| **Mood** | 25% | Dawn's emotionalState tag + energyScore + Muse's energyScore |
-| **Nutrition** | 20% | `nutritionScore` from Muse + work session nutritionScores (averaged) |
-
-**STATE = weighted average of available sub-metrics.** If a sub-metric has no data, its weight is redistributed among the others.
-
-### Visual Layout
-
-```
-┌───────────────────────────┐
-│  STATE                    │
-│                           │
-│  ┌───┐  Sleep     ████ 8.2│
-│  │███│  Nutrition  ███ 7.0│
-│  │███│  Dopamine  ████ 7.8│
-│  │ 7.6│  Mood      ███ 7.5│
-│  └───┘                    │
-│                           │
-│  😴 7.5h  🧠 88  ⚡ 8/9   │
-│  🎯 7.5   grounded        │
-│                           │
-│  "Creative block first,   │
-│   Caldera in afternoon"   │
-└───────────────────────────┘
-```
-
-- Left: vertical STATE bar with composite score
-- Right: 4 horizontal mini-bars for each pillar
-- Bottom: stat pills + day priority from Dawn
-- Color: blue (low) → green (mid) → warm (high)
+- Neutral = don't store. Only signal.
+- Polarity is binary: `positive` or `negative`.
+- Luna surfaces all negative votes for the Alter Memories meditation.
 
 ---
 
 ## 10. The React App
 
-**Location:** `~/limitless-app/`  
-**Port:** 3002  
 **Stack:** Vite + React 18 + Tailwind CSS + Framer Motion
+**Port:** 3002
+**Access:** https://the-limitless-system.work
 
-### Navigation
+### Tabs
 
-4 tabs via bottom nav:
-- 🌅 **Today** — morning cards → completion → creative block → work sessions → night/bed routine
-- 📊 **State** — 4-pillar energy bar + stat pills
-- 🏅 **Badges** — 7 mental badges with XP, tiers, streaks, active missions
-- ⚡ **Stats** — today's votes by category, source, and timeline
+| Tab | Icon | What it shows |
+|-----|------|--------------|
+| Today / Flow | 🌅 | Morning → creative → work sessions → night → bed (sequential flow) |
+| State | 📊 | 4-pillar energy bar (sleep, nutrition, dopamine, mood) |
+| Badges | 🏅 | 7 badges, XP bars, tiers, streaks, active missions |
+| Stats | ⚡ | Vote breakdown by category, source, timeline |
 
-### Morning Routine Cards
+### App State
 
-| # | ID | Title | Pulse Button |
-|---|-----|-------|:---:|
-| 1 | `sleep-screenshot` | 📸 Sleep Cycle | ✅ |
-| 2 | `morning-reading` | 📖 Morning Reading | — |
-| 3 | `journaling` | ✍️ Journaling | — |
-| 4 | `review-plan` | 📋 Review Plan | — |
-| 5 | `sunlight-walk` | ☀️ Sunlight Walk | — |
-| 6 | `fitmind` | 🧠 FitMind | ✅ |
-| 7 | `shower` | 🚿 Cold Shower | — |
-| 8 | `visualization` | 🎯 Visualization | — |
-| 9 | `write-values` | 🔥 Write Values | — |
-
-**Card mechanics:**
-- Cards shown one at a time. Must complete in order.
-- DONE: hold button 1 second → SVG circle fills → card slides out left, next slides in right
-- Skip: instant, same animation
-- Progress bar at top
-
-### State Management
-
-**localStorage** for instant UX (keys: `limitless_morning_statuses`, `limitless_current_view`, `limitless_creative_block_start`, `limitless_last_reset`).
-
-**Reconciliation on mount:** app fetches `GET /api/morning-block-log` and merges server state into localStorage. Server is the source of truth.
-
-**Daily reset at 3am:** if `hour >= 3` and `lastReset !== today`, clear all localStorage state.
+- **localStorage** for instant UX. Reconciled against server on mount (server wins on conflict).
+- **Daily reset at 3am** — all localStorage state clears.
 
 ### Source Files
 
 ```
 src/
-├── App.jsx                   ← root state, localStorage, tab routing, reconciliation
-├── main.jsx                  ← React entry point
-├── index.css                 ← Tailwind imports + base reset
+├── App.jsx                   ← root state, tab routing, reconciliation
 ├── components/
-│   ├── BottomNav.jsx         ← 4-tab navigation
-│   ├── MorningRoutine.jsx    ← card flow orchestrator + AnimatePresence
-│   ├── HabitCard.jsx         ← single card: hold-to-confirm, skip, Pulse deep-link
-│   ├── CompletionScreen.jsx  ← post-morning summary + Dawn deep-link
-│   ├── CreativeBlock.jsx     ← timer + Muse deep-link
-│   ├── WorkSessions.jsx      ← 3×90min sessions, timers, breaks, Forge deep-links
-│   ├── NightRoutine.jsx      ← 7 night/bed items, hold-to-confirm, Luna deep-links
-│   ├── StateTab.jsx          ← 4-pillar energy bar + score calculation
-│   ├── BadgesTab.jsx         ← 7 badges, XP bars, tiers, streaks, active missions
-│   └── StatsTab.jsx          ← vote breakdown by category/source + timeline
+│   ├── BottomNav.jsx
+│   ├── MorningRoutine.jsx    ← morning card flow
+│   ├── HabitCard.jsx         ← hold-to-confirm, skip
+│   ├── CompletionScreen.jsx  ← post-morning summary
+│   ├── CreativeBlock.jsx     ← timer
+│   ├── WorkSessions.jsx      ← 3×90min sessions, timers, Forge links
+│   ├── NightRoutine.jsx      ← night + bed items, Luna links
+│   ├── VFGame.jsx            ← VF Game UI (sliders, sessions)
+│   ├── StateTab.jsx          ← 4-pillar energy bar
+│   ├── BadgesTab.jsx         ← badge progression
+│   ├── BadgeDetailSheet.jsx  ← badge detail + missions
+│   ├── MentalGame.jsx        ← Mental Game screen
+│   ├── HomeScreen.jsx        ← home dashboard
+│   ├── DashboardTab.jsx
+│   ├── HistoryTab.jsx
+│   ├── DopamineTracker.jsx
+│   ├── EpisodeBar.jsx        ← episode framing bar
+│   └── DayCountdownBar.jsx
 ├── data/
-│   ├── morningRoutine.js     ← the 9 morning items config
-│   └── nightRoutine.js       ← the 7 night/bed items config
+│   ├── morningRoutine.js     ← the 9 morning items
+│   └── nightRoutine.js       ← the 7 night/bed items
 server/
-├── index.js                  ← the file server (single write authority)
+├── index.js                  ← the file server
+├── DATA_SCHEMA.md            ← full data schema reference
 └── data/
-    ├── badges.json           ← 7 badge definitions + 35 exercises (static)
-    └── missions.json         ← 105 pre-written missions (static)
+    ├── affirmations.json     ← VF Game affirmation statements
+    ├── badges.json           ← 7 badge definitions + 35 exercises
+    ├── missions.json         ← 105 pre-written missions
+    └── badge-progress.json   ← seeded empty progress (for fresh install)
 ```
 
 ---
 
-## 11. Telegram Deep Links
-
-| Button | URL | Location |
-|--------|-----|----------|
-| 📲 Open Pulse → | `t.me/limitless_pulse_bot` | Sleep Cycle card, FitMind card |
-| 💬 Log Morning → | `t.me/limitless_dawn_bot` | Completion screen |
-| 💬 Check In → | `t.me/limitless_muse_bot` | Creative block view |
-
-| 💬 Start/End Session → | `t.me/limitless_forge_bot` | Work sessions view |
-| 💬 Open Luna → | `t.me/limitless_luna_bot` | Night/bed routine cards |
-
-Forge is also opened by DM-ing directly for mid-day check-ins.
-
----
-
-## 12. Infrastructure
+## 11. Infrastructure
 
 ### Running the System
 
 ```bash
-# Start OpenClaw (agents)
+# Start OpenClaw (all agents)
 openclaw gateway start
 
 # Start app + file server
@@ -715,23 +484,16 @@ cd ~/limitless-app
 npm run dev:all
 # → App: http://localhost:3002
 # → File server: http://localhost:3001
-
-# Or individually:
-npm run dev      # Vite only
-npm run server   # File server only
 ```
 
 ### Integration Tests
 
 ```bash
-# Requires file server running
 cd ~/limitless-app
 npm run server &
 bash scripts/test-integrations.sh
-# Currently: 68/68 passing
+# 89/89 passing
 ```
-
-Tests cover: all GET/POST endpoints, field injection blocking, vote validation, data layer integrity, agent workspaces, bot tokens, config security, backup infrastructure.
 
 ### Historical Snapshots
 
@@ -739,355 +501,135 @@ When a new day triggers a reset, yesterday's data is archived:
 
 ```
 ~/.openclaw/data/shared/history/
-├── 2026-02-19/
-│   ├── morning-block-log.json
-│   ├── sleep-data.json
+├── 2026-03-04/
+│   ├── morning-state.json
 │   ├── votes.json
-│   └── ... (all 10 files)
-├── 2026-02-20/
-│   └── ...
+│   └── ... (all daily files)
 ```
 
-- Archives are idempotent (only created once per date)
-- Pruned after 90 days
-- Queryable: `GET /history` (list dates), `GET /history/:date` (all files), `GET /history/:date/:file`
+Queryable via `GET /history`, `GET /history/:date`, `GET /history/:date/:file`.
 
-### Daily Backup Cron
+### Cloudflare Tunnel
 
-OpenClaw cron job runs at 11pm EST: copies entire `~/.openclaw/data/shared/` to `~/.openclaw/data/backups/YYYY-MM-DD/`. Keeps last 30 days.
+`the-limitless-system.work` → `localhost:3002`
 
-### Cloudflare Tunnel (Phone Access)
+Three things must be running:
+1. `npm run dev:all` (app :3002 + file server :3001)
+2. `openclaw gateway start`
+3. `cloudflared` systemd service
 
-Vite is configured with `port: 3002`, `host: true`, and `allowedHosts: ['the-limitless-system.work', 'localhost']`.
+### OpenClaw Config
 
-Named tunnel configured: `the-limitless-system.work` → `localhost:3002`
+Config: `~/.openclaw/openclaw.json` (chmod 600, never in git)
 
-**Three things need to be running:**
-1. `npm run dev:all` (app on :3002 + file server on :3001)
-2. `openclaw gateway start` (agents — already running)
-3. `cloudflared` tunnel service (routes the-limitless-system.work → localhost:3002)
+Each agent has:
+- Entry in `agents.list` with `id`, `name`, `workspace`, `model`, `identity`
+- Entry in `channels.telegram.accounts` with bot token + allowFrom
 
-**Access:** https://the-limitless-system.work
+Account key in `accounts` maps directly to the `agentId` it routes to.
 
-### Security
-
-- `~/.openclaw/openclaw.json` is `chmod 600` — contains bot tokens and API keys
-- File server has no authentication — only accessible locally (port 3001 never exposed)
-- Cloudflare tunnel points at port 3002 only — file server is proxied via Vite (`/api/*`)
-- Bot tokens are **never** in the git repo
+See `agents/agents.json` for the config reference (tokens excluded).
+See `DEPLOY.md` for full setup instructions.
 
 ---
 
-## 13. Night / Bed Routine Reference
+## 12. Repo Structure
 
-### Night Routine
-
-| # | ID | Description |
-|---|-----|-------------|
-| 1 | `letting-go` | 🌊 Letting Go meditation |
-| 2 | `nervous-system` | 🧘 Regulate nervous system |
-| 3 | `plan-tomorrow` | 📋 Plan tomorrow (real dialogue with Luna) |
-
-### Bed Routine
-
-| # | ID | Description |
-|---|-----|-------------|
-| 1 | `finalize-plan` | ✅ Send final plan to Luna (text or image) |
-| 2 | `read-prompts` | ❓ Read prompts (can discuss with Luna) |
-| 3 | `affirmations` | 🔥 Read affirmations |
-| 4 | `alter-memories` | 🧠 Alter Memories (Luna provides negative votes) |
+```
+limitless-app/
+├── README.md               ← brief intro
+├── DOCS.md                 ← this file
+├── MANUAL.md               ← user-facing how-to
+├── DEPLOY.md               ← deployment guide (zero to running)
+├── PLAN.md                 ← dev roadmap + open questions
+├── agents/
+│   ├── agents.json         ← agent config reference
+│   ├── faith/SOUL.md
+│   ├── ruby/SOUL.md
+│   ├── forge/SOUL.md
+│   ├── luna/SOUL.md
+│   ├── pulse/SOUL.md
+│   ├── void/SOUL.md
+│   └── void/knowledge/     ← Katie Clarke framework files
+├── faith-knowledge/        ← Faith's knowledge files (Tolle, Rubin, Clarke, beliefs)
+├── specs/                  ← feature specs (7 written)
+│   ├── daytime-agent-spec.md
+│   ├── dopamine-tracking-spec.md
+│   ├── episode-framing-spec.md
+│   ├── home-screen-spec.md
+│   ├── mental-game-spec.md
+│   ├── night-routine-rebuild-spec.md
+│   └── vf-game-spec.md
+├── scripts/
+│   ├── setup-agents.sh     ← installs agent workspaces + prints openclaw.json snippets
+│   └── test-integrations.sh
+├── server/
+│   ├── index.js
+│   ├── DATA_SCHEMA.md      ← full data schema
+│   └── data/               ← static config (badges, missions, affirmations)
+└── src/                    ← React app
+```
 
 ---
 
-## 14. Mental Badges System
-
-A skill tree / progression system for 7 mental capabilities. Each badge has exercises, missions, a training plan with tier progression, and Identity Vote Casting integration.
-
-### The 7 Badges
-
-| Badge | Slug | Emoji | Identity Statement |
-|-------|------|-------|--------------------|
-| Reality Distortion Field | `rdf` | 🔮 | "I am someone whose conviction reshapes the environment around me." |
-| Frame Control | `frame-control` | 🪞 | "My frame is mine. No one enters it without my permission." |
-| Fearlessness | `fearlessness` | 🦁 | "I move toward what scares me. Fear is my compass, not my cage." |
-| Aggression | `aggression` | 🔥 | "I refuse to be domesticated. My intensity comes from love for what could be and rage at what is." |
-| Carefreeness | `carefreeness` | 🎈 | "I play full out and hold on to nothing. Life is a game I'm winning by enjoying." |
-| Presence | `presence` | 🎯 | "I am here. Fully. The present moment is the only place where life actually happens." |
-| Bias to Action | `bias-to-action` | ⚡ | "I move. While others plan, I act. Speed is my weapon. Momentum is my fuel." |
-
-### Tier Progression (Very Hard)
-
-| Tier | Name | XP Required | Realistic Timeline |
-|------|------|-------------|-------------------|
-| 1 | Initiate | 0 | Start |
-| 2 | Apprentice | 750 | ~5-6 weeks |
-| 3 | Practitioner | 3,000 | ~5-6 months |
-| 4 | Adept | 10,000 | ~1.5-2 years |
-| 5 | Master | 30,000 | ~4+ years |
-
-Master is a life commitment. Not aspirational — actual years of daily work.
-
-### XP Economy
-
-| Source | XP | Notes |
-|--------|-----|-------|
-| Exercise completed | +5 | 5 exercises per badge, 25 XP/day max |
-| Mission success | +15 to +100 | Scales with tier (T1: 15, T2: 25, T3: 40, T4: 60, T5: 100) |
-| Mission fail | +3 to +20 | You tried — partial credit |
-| VF Game conviction ≥ 8 | +10 | Bonus for strong conviction |
-| VF Game conviction ≤ 3 | -5 | Penalty for weak conviction (can't go below 0) |
-| Boss encounter logged | +25 | Recognizing inner resistance patterns |
-| No action (VF Game) | -0.5 vote | Inaction has a cost |
-
-### Streak Multipliers
-
-| Streak | Multiplier | Effect |
-|--------|-----------|--------|
-| 7 days | 1.25x | All XP for that badge × 1.25 |
-| 14 days | 1.5x | All XP for that badge × 1.5 |
-| 30 days | 2.0x | All XP for that badge × 2.0 |
-
-Streak = consecutive days with at least 1 activity for that badge. Miss a day → streak resets to 1.
-
-### Exercises (5 per badge)
-
-Each badge has 5 daily exercises drawn from its training protocol. Each gives +5 XP (before streak multiplier). Exercises are specific, daily-practicable actions.
-
-**Static reference:** `server/data/badges.json` contains all badge definitions and exercises.
-
-### Missions (15 per badge, 105 total)
-
-Pre-written challenge pool distributed across tiers:
-- Tier 1: 5 missions (accessible from start)
-- Tier 2: 4 missions
-- Tier 3: 3 missions
-- Tier 4: 2 missions
-- Tier 5: 1 mission (the ultimate challenge)
-
-Missions are assigned via `POST /badge-missions/assign` — one random mission per badge from the eligible pool (minTier ≤ current tier). Assignment is user-triggered or agent-triggered, NOT automatic.
-
-**Static reference:** `server/data/missions.json` contains all 105 missions.
-
-### Data Files
-
-**Persistent (no daily reset):**
-- `badge-progress.json` — cumulative XP, tiers, streaks per badge
-- `badge-missions.json` — active + completed mission history
-
-**Daily (reset at day change):**
-- `badge-daily.json` — today's exercises and mission attempts
-
-**Append-only:**
-- `boss-encounters.jsonl` — all boss encounters ever logged
-
-### Endpoints
-
-| Endpoint | Method | Called by | What it does |
-|----------|--------|----------|-------------|
-| `/badges` | GET | App/Agents | Returns all badge definitions + exercises |
-| `/badges/missions` | GET | App/Agents | Returns all 105 missions |
-| `/badge-progress` | GET | App/Agents | Returns cumulative progress for all badges |
-| `/badge-progress/exercise` | POST | Agents | Log exercise completion → XP + streak |
-| `/badge-missions` | GET | App/Agents | Returns active + completed missions |
-| `/badge-missions/assign` | POST | Agents/User | Assign today's missions (1 per badge) |
-| `/badge-missions/complete` | POST | Agents | Complete/fail a mission → XP |
-| `/badge-daily` | GET | App | Today's badge activity log |
-| `/boss-encounters` | POST | Agents/User | Log a boss encounter → +25 XP |
-| `/boss-encounters` | GET | App/Agents | List all boss encounters (filter by badge, limit) |
-
----
-
-## 15. The VF Game
-
-An end-of-day conviction-tracking game centered around the 7 badge identity statements. User-triggered only — no automatic behavior.
-
-### Flow
-
-1. User triggers the VF Game (DMs an agent or uses the app)
-2. For each badge's identity statement: "How much did you feel like this today?" (1-10)
-3. For each: "What actions reinforced this?" / "What actions weakened this?"
-4. Presence check: "How present are you right now?" (1-10) + effort level (1-10)
-5. Optional: guided open-ended questions for finding the "boss" (inner resistance pattern)
-
-### Vote Generation
-
-| Condition | Vote | Weight |
-|-----------|------|--------|
-| Reinforcing action listed | +1 positive vote | 1.0 |
-| Weakening action listed | -1 negative vote | 1.0 |
-| No action for either (and conviction scored) | -0.5 negative vote | 0.5 |
-
-All VF Game votes go into `votes.json` with `source: "vf-game"`. Luna reads them for Alter Memories meditation.
-
-### XP Impact
-
-| Conviction Score | Effect |
-|-----------------|--------|
-| ≥ 8 | +10 XP for that badge |
-| 4-7 | No XP change |
-| ≤ 3 | -5 XP for that badge (can't go below 0) |
-
-### Boss Encounters
-
-Three methods to log:
-1. Send a text message to the agent — it keeps the record
-2. Send an image of journal writing — it keeps the record
-3. Initiate a conversation with the agent — helps describe and express it
-
-Each boss encounter: +25 XP for the related badge. Stored in `boss-encounters.jsonl` (local only, append-only, no analysis yet).
-
-### Data Schema
-
-**vf-game.json (daily reset)**
-```json
-{
-  "date": "2026-02-20",
-  "triggeredAt": "2026-02-20T22:30:00.000Z",
-  "completedAt": "2026-02-20T23:00:00.000Z",
-  "presenceScore": 8,
-  "effortLevel": 7,
-  "affirmations": [
-    {
-      "badgeSlug": "rdf",
-      "statement": "I am someone whose conviction reshapes the environment around me.",
-      "convictionScore": 9,
-      "reinforcingActions": ["Held strong opinion in client meeting"],
-      "weakeningActions": [],
-      "votes": [{"action": "Held strong opinion in client meeting", "polarity": "positive", "weight": 1}]
-    }
-  ],
-  "beliefs": [],
-  "guidedQuestions": [],
-  "notes": ""
-}
-```
-
-**badge-progress.json (persistent)**
-```json
-{
-  "lastUpdated": "2026-02-20T23:00:00.000Z",
-  "badges": {
-    "rdf": {
-      "tier": 1, "tierName": "Initiate", "xp": 30,
-      "exercisesCompleted": 5, "missionsCompleted": 1, "missionsFailed": 0,
-      "bossEncounters": 0, "currentStreak": 3, "longestStreak": 3,
-      "lastActivityDate": "2026-02-20"
-    }
-  }
-}
-```
-
-**badge-daily.json (daily reset)**
-```json
-{
-  "date": "2026-02-20",
-  "exercises": [
-    {"badgeSlug": "rdf", "exerciseId": "rdf-taste-training", "timestamp": "ISO", "xpGained": 5}
-  ],
-  "missionsAttempted": [
-    {"missionId": "rdf-t1-taste-battle", "badgeSlug": "rdf", "success": true, "xpGained": 15, "timestamp": "ISO"}
-  ],
-  "xpGained": {"rdf": 20}
-}
-```
-
-**badge-missions.json (persistent)**
-```json
-{
-  "lastAssigned": "2026-02-20",
-  "active": [
-    {
-      "missionId": "rdf-t1-taste-battle", "badgeSlug": "rdf",
-      "title": "Taste Battle", "description": "...", "successCriteria": "...",
-      "rewardXp": 15, "failXp": 3, "minTier": 1,
-      "assignedAt": "ISO", "status": "pending", "completedAt": null, "xpAwarded": 0
-    }
-  ],
-  "completed": []
-}
-```
-
-**boss-encounters.jsonl (append-only)**
-```jsonl
-{"id":"uuid","timestamp":"ISO","badgeSlug":"frame-control","type":"text","title":"Flinched in negotiation","content":"Caught myself softening when client pushed back on price.","xpAwarded":25,"source":"user"}
-```
-
-### Endpoint
-
-| Endpoint | Method | What it does |
-|----------|--------|-------------|
-| `/vf-game` | GET | Today's VF Game session |
-| `/vf-game` | POST | Submit VF Game results → votes + XP adjustments |
-
----
-
-## 16. Build Status
+## 13. Build Status
 
 | Component | Status |
 |-----------|--------|
-| Shared data layer (14 files + 2 append-only) | ✅ |
-| File server (all endpoints, validation, archiving) | ✅ |
-| Pulse agent (screenshot → data + votes via API) | ✅ |
-| Dawn agent (morning check-in → state + votes via API) | ✅ |
-| Muse agent (creative debrief → state + votes via API) | ✅ |
-| Forge agent (work sessions → scores + votes via API) | ✅ |
-| Luna agent (night routine + planning + vote summary via API) | ✅ |
+| Express file server (all endpoints, validation, archiving) | ✅ |
+| Shared data layer (16 files + 2 append-only) | ✅ |
+| Faith agent (dual-mode: morning + pre-creative) | ✅ |
+| Ruby agent (daytime: meals, key decisions, dopamine, screenshots) | ✅ |
+| Forge agent (work sessions → scores + votes) | ✅ |
+| Luna agent (night routine + anytime vote translation) | ✅ |
+| Void agent (VF Game mirror + key decisions) | ✅ |
+| Pulse agent (screenshot extraction → data + votes) | ✅ |
 | All 6 Telegram bots wired | ✅ |
-| App: morning routine cards (correct order) | ✅ |
+| App: morning routine cards | ✅ |
 | App: creative block view | ✅ |
+| App: work sessions (3×90min, timers) | ✅ |
+| App: night + bed routine (hold-to-confirm, Luna links) | ✅ |
 | App: State tab (4 pillars + composite) | ✅ |
-| Vite proxy (/api/* → :3001) | ✅ |
-| App state reconciliation on mount | ✅ |
-| Integration tests (89/89) | ✅ |
-| Historical snapshots + /history endpoints | ✅ |
-| Daily backup cron (11pm EST) | ✅ |
-| Security (chmod 600, field whitelisting) | ✅ |
-| Request logging + crash protection | ✅ |
-| Health endpoint | ✅ |
-| Dawn + Muse + Luna on opus | ✅ |
-| Daily session reset at 3am | ✅ |
-| Mental Badges: 7 badge definitions + 35 exercises | ✅ |
-| Mental Badges: 105 pre-written missions (15/badge × 5 tiers) | ✅ |
-| Mental Badges: XP engine (exercises, missions, streaks) | ✅ |
-| Mental Badges: Tier progression system (5 tiers) | ✅ |
-| Mental Badges: Mission assignment + completion endpoints | ✅ |
-| VF Game: Conviction tracking + vote generation | ✅ |
+| App: Badges tab (7 badges, XP, tiers, streaks, missions) | ✅ |
+| App: Stats tab (vote breakdown, timeline, source) | ✅ |
+| App: VF Game UI (sliders, multi-session, resistance + conviction) | ✅ |
+| Mental Badges: 7 badges, 35 exercises, 105 missions | ✅ |
+| Mental Badges: XP engine (exercises, missions, streaks, multipliers) | ✅ |
+| Mental Badges: Tier progression (5 tiers, 30K XP cap) | ✅ |
+| VF Game: conviction tracking + vote generation | ✅ |
 | VF Game: XP impact (bonus/penalty by conviction score) | ✅ |
-| VF Game: -0.5 weight for inaction | ✅ |
-| Boss encounters: Logging + XP reward | ✅ |
-| Badge data: persistent progress (no daily reset) | ✅ |
-| App: deep work session UI | ✅ |
-| App: night/bed routine UI (7 items, hold-to-confirm, Luna links) | ✅ |
-| App: Stats tab (vote breakdown, timeline, source view) | ✅ |
-| App: Badges tab (7 badges, XP bars, tiers, streaks, missions) | ✅ |
-| App: Work sessions UI (3×90min, timers, Forge links) | ✅ |
-| Agent wiring: VF Game in Luna SOUL.md | ✅ |
-| Agent wiring: Badge exercises in all agent SOULs | ✅ |
-| Agent wiring: Mission management in Forge + Luna | ✅ |
-| Vite config: port 3002, host, allowedHosts | ✅ |
-| Cloudflare tunnel | ✅ Config ready, run manually (see Infrastructure) |
+| Key Decisions: type system + multipliers | ✅ |
+| Boss encounters: logging + XP reward (+25) | ✅ |
+| Historical snapshots + /history endpoints | ✅ |
+| Integration tests (89/89) | ✅ |
+| Cloudflare tunnel (the-limitless-system.work) | ✅ |
+| Agent SOUL.md files in repo | ✅ |
+| Agent knowledge files in repo | ✅ |
+| DATA_SCHEMA.md | ✅ |
+| DEPLOY.md | ✅ |
+| Session reset at 3am | ✅ |
+| Episode framing (spec written) | 🔲 |
+| Home screen dashboard (spec written) | 🔲 |
+| Mental Game screen (spec written) | 🔲 |
+| Night routine rebuild (spec written) | 🔲 |
+| Multi-user support | 🔲 |
+| Desktop dashboard | 🔲 |
 
 ---
 
-## 17. Key File Reference
+## 14. Key File Reference
 
 | File | Purpose |
 |------|---------|
-| `~/.openclaw/openclaw.json` | OpenClaw config — agents, bots, bindings, auth |
-| `~/.openclaw/data/shared/` | Shared data directory — the system's "database" |
+| `~/.openclaw/openclaw.json` | OpenClaw config — agents, bots, auth (never in git) |
+| `~/.openclaw/data/shared/` | Live data directory |
 | `~/.openclaw/data/shared/history/` | Daily archives |
-| `~/.openclaw/data/backups/` | Nightly full backups |
-| `~/.openclaw/agents/*/workspace/SOUL.md` | Agent instructions |
-| `~/limitless-app/` | App + file server source |
-| `~/limitless-app/server/index.js` | The file server (single write authority) |
-| `~/limitless-app/src/data/morningRoutine.js` | The 9 morning items — edit to change routine |
-| `~/limitless-app/scripts/test-integrations.sh` | Integration test suite |
-| `~/limitless-app/server/data/badges.json` | 7 badge definitions + 35 exercises (static) |
+| `~/.openclaw/agents/*/workspace/SOUL.md` | Agent personalities + operating instructions |
+| `~/limitless-app/server/index.js` | The file server |
+| `~/limitless-app/server/DATA_SCHEMA.md` | Full data schema reference |
+| `~/limitless-app/server/data/badges.json` | Badge definitions + exercises (static) |
 | `~/limitless-app/server/data/missions.json` | 105 pre-written missions (static) |
-| `~/.openclaw/data/shared/badge-progress.json` | Cumulative XP, tiers, streaks (persistent) |
-| `~/.openclaw/data/shared/badge-missions.json` | Active + completed missions (persistent) |
-| `~/.openclaw/data/shared/badge-daily.json` | Today's badge activity (daily reset) |
-| `~/.openclaw/data/shared/vf-game.json` | Today's VF Game session (daily reset) |
-| `~/.openclaw/data/shared/boss-encounters.jsonl` | All boss encounters (append-only) |
-| `~/limitless-app/DOCS.md` | This file |
-| `~/limitless-app/PLAN.md` | Execution plan + open questions |
+| `~/limitless-app/server/data/affirmations.json` | VF Game affirmation statements (static) |
+| `~/limitless-app/agents/agents.json` | Agent config reference (tokens excluded) |
+| `~/limitless-app/DEPLOY.md` | Full deployment guide |
+| `~/limitless-app/PLAN.md` | Dev roadmap |
