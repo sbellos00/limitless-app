@@ -435,12 +435,14 @@ Every agent (except Void — votes auto-generated from key decisions) emits vote
 
 ### Tabs
 
-| Tab | Icon | What it shows |
-|-----|------|--------------|
-| Today / Flow | 🌅 | Morning → creative → work sessions → night → bed (sequential flow) |
-| State | 📊 | 4-pillar energy bar (sleep, nutrition, dopamine, mood) |
-| Badges | 🏅 | 7 badges, XP bars, tiers, streaks, active missions |
-| Stats | ⚡ | Vote breakdown by category, source, timeline |
+| Tab | What it shows |
+|-----|--------------|
+| Home | Power Level (VF score ring), State ring, RPG attribute bars (sleep/nutrition/dopamine/mood), quest chain (day progress), episode arc, key decisions, affirmation grid |
+| Flow | Morning routine -> creative -> work sessions -> night -> bed (sequential flow). Episode open/close screens for day start/end |
+| State | 4-pillar energy bar (sleep, nutrition, dopamine, mood) |
+| Mental | Rank seal (Initiate->Master), 7 discipline skill cards with SVG glyphs, active missions (quest board), training log |
+| Dopamine | Balance beam (SVG), stats row, farming timer with milestones, overstim quick-log grid (SVG icons), session timeline, weekly dots |
+| History | 14-day trend view + day drilldown (sleep/morning/work/votes) |
 
 ### App State
 
@@ -451,39 +453,59 @@ Every agent (except Void — votes auto-generated from key decisions) emits vote
 
 ```
 src/
-├── App.jsx                   ← root state, tab routing, reconciliation
+├── App.jsx                   ← root state, tab routing, episode lifecycle, daily reset
 ├── components/
-│   ├── BottomNav.jsx
-│   ├── MorningRoutine.jsx    ← morning card flow
+│   ├── BottomNav.jsx         ← 6-tab nav with SVG icons
+│   ├── HomeScreen.jsx        ← Power ring, state ring, attribute bars, quest chain, decisions
+│   ├── MorningRoutine.jsx    ← morning card flow, wires EpisodeOpen for day start
 │   ├── HabitCard.jsx         ← hold-to-confirm, skip
 │   ├── CompletionScreen.jsx  ← post-morning summary
 │   ├── CreativeBlock.jsx     ← timer
-│   ├── WorkSessions.jsx      ← 3×90min sessions, timers, Forge links
+│   ├── WorkSessions.jsx      ← 3x90min sessions, timers, Forge links
 │   ├── NightRoutine.jsx      ← night + bed items, Luna links
 │   ├── VFGame.jsx            ← VF Game UI (sliders, sessions)
 │   ├── StateTab.jsx          ← 4-pillar energy bar
-│   ├── BadgesTab.jsx         ← badge progression
-│   ├── BadgeDetailSheet.jsx  ← badge detail + missions
-│   ├── MentalGame.jsx        ← Mental Game screen
-│   ├── HomeScreen.jsx        ← home dashboard
+│   ├── MentalGame.jsx        ← rank seal, discipline grid (SVG glyphs), missions, training log
+│   ├── BadgeDetailSheet.jsx  ← badge detail + exercises + missions (draggable sheet)
+│   ├── DopamineTracker.jsx   ← balance beam, farming timer, overstim grid (SVG icons), timeline
+│   ├── EpisodeBar.jsx        ← persistent top bar with shimmer, expandable arc + scenes
+│   ├── EpisodeOpen.jsx       ← cinematic day-start screen (title/arc input, "Previously on...")
+│   ├── EpisodeClose.jsx      ← end-of-day screen (key scenes, rating icons, credits)
+│   ├── DayCountdownBar.jsx   ← 24h countdown + end day button
+│   ├── HistoryTab.jsx        ← 14-day trend + day drilldown
+│   ├── BadgesTab.jsx
+│   ├── StatsTab.jsx
 │   ├── DashboardTab.jsx
-│   ├── HistoryTab.jsx
-│   ├── DopamineTracker.jsx
-│   ├── EpisodeBar.jsx        ← episode framing bar
-│   └── DayCountdownBar.jsx
+│   ├── DevPanel.jsx          ← dev tools panel
+│   └── Confetti.jsx
 ├── data/
 │   ├── morningRoutine.js     ← the 9 morning items
 │   └── nightRoutine.js       ← the 7 night/bed items
+├── utils/
+│   ├── haptics.js            ← Taptic feedback wrapper
+│   └── sounds.js             ← Audio feedback wrapper
 server/
-├── index.js                  ← the file server
+├── index.js                  ← the file server (single write authority)
 ├── DATA_SCHEMA.md            ← full data schema reference
 └── data/
     ├── affirmations.json     ← VF Game affirmation statements
     ├── badges.json           ← 7 badge definitions + 35 exercises
     ├── missions.json         ← 105 pre-written missions
-    ├── badge-progress.json        ← seeded empty progress (for fresh install)
-    └── work-session-actions.md    ← all available work session action types (8 categories)
+    ├── badge-progress.json   ← seeded empty progress (for fresh install)
+    └── work-session-actions.md  ← available work session action types
 ```
+
+### UI Design Principles
+
+- **Game feel, not dashboard** — the app should feel like an RPG character screen, not analytics
+- **No emojis** — all icons are inline SVGs (geometric, symbolic, monochrome)
+- **Dark theme** — bg-black, text-white, glass surfaces (bg-white/[0.02-0.06])
+- **Atmospheric depth** — radial gradients, glow effects, ambient animations via Framer Motion
+- **Small text** — 9-15px range, uppercase tracking for labels, tabular-nums for data
+- **SVG glyph system** — each discipline has a unique geometric icon (diamond, hexagon, sword, flame, waves, zen circle, lightning)
+- **Color-coded disciplines** — 7 distinct colors mapped in DISCIPLINE_COLORS constant
+- **Tier progression** — Initiate (gray) -> Apprentice (blue) -> Warrior (purple) -> Champion (amber) -> Master (red)
+- **Score coloring** — green >= 7, amber >= 4, red < 4 (consistent across all score displays)
 
 ---
 
@@ -616,6 +638,11 @@ limitless-app/
 | VF Game: XP impact (bonus/penalty by conviction score) | ✅ |
 | Key Decisions: type system + multipliers | ✅ |
 | Boss encounters: logging + XP reward (+25) | ✅ |
+| App: HomeScreen game UI (power ring, attributes, quest chain) | ✅ |
+| App: MentalGame game UI (rank seal, discipline glyphs, quest board) | ✅ |
+| App: DopamineTracker (balance beam, farming timer, overstim grid) | ✅ |
+| App: Episode system (EpisodeOpen, EpisodeClose, EpisodeBar) | ✅ |
+| UI: SVG icon system (no emojis), atmospheric dark theme | ✅ |
 | Historical snapshots + /history endpoints | ✅ |
 | Integration tests (89/89) | ✅ |
 | Cloudflare tunnel (the-limitless-system.work) | ✅ |
