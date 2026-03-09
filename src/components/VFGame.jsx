@@ -92,22 +92,22 @@ export default function VFGame({ onBack }) {
   }, [affirmations])
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    const cycleId = localStorage.getItem('limitless_cycle_id')
     const skippedFlag = localStorage.getItem('limitless_vf_skipped')
-    if (skippedFlag && skippedFlag !== today) {
+    if (skippedFlag && skippedFlag !== cycleId) {
       setShowSkippedNote(true)
       localStorage.removeItem('limitless_vf_skipped')
       return
     }
 
-    const completedDate = localStorage.getItem('limitless_vf_completed_date')
-    // Don't block re-entry, just skip penalty checks if already completed today
-    if (completedDate === today) return
+    const completedCycle = localStorage.getItem('limitless_vf_completed_cycle')
+    // Don't block re-entry, just skip penalty checks if already completed this cycle
+    if (cycleId && completedCycle === cycleId) return
 
-    const storedStart = localStorage.getItem('limitless_day_start')
+    const storedStart = localStorage.getItem('limitless_cycle_start')
     const dayStartTimestamp = storedStart ? Number(storedStart) : null
 
-    if (!dayStartTimestamp) {
+    if (!cycleId || !dayStartTimestamp) {
       setPenalty('no-start')
       setStep('penalty')
       return
@@ -121,9 +121,9 @@ export default function VFGame({ onBack }) {
 
   useEffect(() => {
     if (!penalty || penaltyPostedRef.current || affirmations.length === 0) return
-    const today = new Date().toISOString().slice(0, 10)
-    const postedDate = localStorage.getItem('limitless_vf_penalty_date')
-    if (postedDate === today) {
+    const cycleId = localStorage.getItem('limitless_cycle_id')
+    const postedCycle = localStorage.getItem('limitless_vf_penalty_cycle')
+    if (cycleId && postedCycle === cycleId) {
       penaltyPostedRef.current = true
       return
     }
@@ -159,8 +159,10 @@ export default function VFGame({ onBack }) {
       body: JSON.stringify({ events: [eventPayload] })
     }).catch(() => {})
 
-    localStorage.setItem('limitless_vf_penalty_date', today)
-    localStorage.setItem('limitless_vf_completed_date', today)
+    if (cycleId) {
+      localStorage.setItem('limitless_vf_penalty_cycle', cycleId)
+      localStorage.setItem('limitless_vf_completed_cycle', cycleId)
+    }
   }, [penalty, affirmations])
 
   const currentAffirmation = affirmations[currentIndex]
@@ -213,8 +215,8 @@ export default function VFGame({ onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ presenceScore: null, affirmations: payload })
       })
-      const today = new Date().toISOString().slice(0, 10)
-      localStorage.setItem('limitless_vf_completed_date', today)
+      const cycleId = localStorage.getItem('limitless_cycle_id')
+      if (cycleId) localStorage.setItem('limitless_vf_completed_cycle', cycleId)
       localStorage.removeItem('limitless_vf_skipped')
       setSaved(true)
       // Reset after 2s so they can do another session
@@ -312,8 +314,8 @@ export default function VFGame({ onBack }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col px-6 pb-10">
-      <div className="pt-6">
+    <div className="flex flex-1 flex-col overflow-hidden px-6 pb-10">
+      <div className="shrink-0 pt-6">
         <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-white/25">VF Game</p>
         {showSkippedNote && (
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -339,13 +341,13 @@ export default function VFGame({ onBack }) {
           </motion.button>
         </div>
       ) : (
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          <div className="mt-4 flex items-center justify-between text-[12px] text-white/30">
+        <div className="flex flex-1 flex-col min-h-0">
+          <div className="shrink-0 mt-4 flex items-center justify-between text-[12px] text-white/30">
             <span>{formatCategoryLabel(currentAffirmation?.category, categories)}</span>
             <span className="tabular-nums">{currentIndex + 1}/{totalCount}</span>
           </div>
 
-          <div className="mt-8 flex-1">
+          <div className="mt-6 flex-1 min-h-0 overflow-y-auto no-scrollbar">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentAffirmation?.index}
@@ -354,7 +356,7 @@ export default function VFGame({ onBack }) {
                 animate="center"
                 exit="exit"
                 transition={{ type: 'spring', stiffness: 240, damping: 28 }}
-                className="flex flex-col gap-6"
+                className="flex flex-col gap-6 pb-4"
               >
                 <p className="text-[24px] font-semibold leading-tight text-white">
                   {currentAffirmation?.text}
@@ -375,7 +377,7 @@ export default function VFGame({ onBack }) {
             </AnimatePresence>
           </div>
 
-          <div className="pt-8">
+          <div className="shrink-0 pt-4">
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={handleNext}

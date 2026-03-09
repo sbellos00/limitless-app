@@ -140,7 +140,7 @@ const PRESETS = [
   },
 ]
 
-export default function DevPanel() {
+export default function DevPanel({ onNavigate }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -157,6 +157,17 @@ export default function DevPanel() {
       {/* Panel */}
       {open && (
         <div className="fixed right-2 z-[200] w-[160px] rounded-2xl bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/[0.08] p-2 shadow-2xl" style={{ top: 'calc(3rem + env(safe-area-inset-top, 0px))' }}>
+          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-white/30">
+            Dev Pages
+          </p>
+          <div className="mt-1 mb-2 space-y-0.5">
+            <button
+              onClick={() => { onNavigate?.('vf'); setOpen(false) }}
+              className="w-full rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-emerald-400/80 hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
+            >
+              VF Affirmations
+            </button>
+          </div>
           <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-white/30">
             Dev States
           </p>

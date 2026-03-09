@@ -12,7 +12,7 @@ const CATEGORY_COLORS = {
 }
 
 const MAX_DOTS = 24
-const MAX_TREND_DAYS = 14
+const MAX_TREND_CYCLES = 14
 
 function VotePile({ category, positive, negative, delay = 0 }) {
   const color = CATEGORY_COLORS[category] || '#ffffff'
@@ -112,9 +112,9 @@ const fetchJson = async (url) => {
   }
 }
 
-const formatDateLabel = (dateStr) => {
-  const date = new Date(`${dateStr}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return dateStr
+const formatCycleLabel = (startedAt) => {
+  const date = new Date(startedAt)
+  if (Number.isNaN(date.getTime())) return '??'
   const parts = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: '2-digit' })
     .formatToParts(date)
   const weekday = parts.find((part) => part.type === 'weekday')?.value || ''
@@ -122,9 +122,9 @@ const formatDateLabel = (dateStr) => {
   return `${weekday} ${day}`.trim()
 }
 
-const formatFullDate = (dateStr) => {
-  const date = new Date(`${dateStr}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return dateStr
+const formatFullCycleDate = (startedAt) => {
+  const date = new Date(startedAt)
+  if (Number.isNaN(date.getTime())) return '--'
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date)
 }
 
@@ -166,9 +166,9 @@ const formatWorkSummary = (workData) => {
 }
 
 export default function HistoryTab() {
-  const [historyDates, setHistoryDates] = useState(null)
+  const [cycles, setCycles] = useState(null)
   const [historyError, setHistoryError] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(null)
+  const [selectedCycleId, setSelectedCycleId] = useState(null)
   const [trendVotes, setTrendVotes] = useState({})
   const [dayData, setDayData] = useState({
     votes: null,
@@ -178,6 +178,14 @@ export default function HistoryTab() {
   })
   const [dayLoading, setDayLoading] = useState(false)
 
+  // Build a lookup for cycle objects
+  const cycleMap = useMemo(() => {
+    if (!cycles) return {}
+    const map = {}
+    for (const c of cycles) map[c.id] = c
+    return map
+  }, [cycles])
+
   useEffect(() => {
     let mounted = true
     fetchJson('/api/history')
@@ -185,45 +193,46 @@ export default function HistoryTab() {
         if (!mounted) return
         if (!Array.isArray(data)) {
           setHistoryError(true)
-          setHistoryDates([])
+          setCycles([])
           return
         }
-        const sorted = [...data].sort()
-        setHistoryDates(sorted)
+        // Sort by startedAt ascending
+        const sorted = [...data].sort((a, b) => (a.startedAt || '').localeCompare(b.startedAt || ''))
+        setCycles(sorted)
         if (sorted.length > 0) {
-          setSelectedDate((prev) => prev || sorted[sorted.length - 1])
+          setSelectedCycleId((prev) => prev || sorted[sorted.length - 1].id)
         }
       })
       .catch(() => {
         if (!mounted) return
         setHistoryError(true)
-        setHistoryDates([])
+        setCycles([])
       })
     return () => {
       mounted = false
     }
   }, [])
 
-  const recentDates = useMemo(() => {
-    if (!historyDates) return []
-    return historyDates.slice(-MAX_TREND_DAYS)
-  }, [historyDates])
+  const recentCycles = useMemo(() => {
+    if (!cycles) return []
+    return cycles.slice(-MAX_TREND_CYCLES)
+  }, [cycles])
 
   useEffect(() => {
     let active = true
-    if (!recentDates.length) {
+    if (!recentCycles.length) {
       setTrendVotes({})
       return () => {}
     }
 
     const loadTrend = async () => {
       const entries = await Promise.all(
-        recentDates.map(async (date) => {
-          const data = await fetchJson(`/api/history/${date}/votes`)
+        recentCycles.map(async (cycle) => {
+          const data = await fetchJson(`/api/history/${cycle.id}/votes`)
           const votes = Array.isArray(data?.votes) ? data.votes : []
           const positive = votes.filter((v) => v.polarity === 'positive').length
           const negative = votes.filter((v) => v.polarity === 'negative').length
-          return [date, {
+          return [cycle.id, {
             net: positive - negative,
             hasVotes: votes.length > 0,
           }]
@@ -237,21 +246,21 @@ export default function HistoryTab() {
     return () => {
       active = false
     }
-  }, [recentDates])
+  }, [recentCycles])
 
   useEffect(() => {
     let active = true
-    if (!selectedDate) {
+    if (!selectedCycleId) {
       setDayData({ votes: null, sleep: null, morning: null, work: null })
       return () => {}
     }
 
     setDayLoading(true)
     Promise.all([
-      fetchJson(`/api/history/${selectedDate}/votes`),
-      fetchJson(`/api/history/${selectedDate}/sleep-data`),
-      fetchJson(`/api/history/${selectedDate}/morning-state`),
-      fetchJson(`/api/history/${selectedDate}/work-sessions`),
+      fetchJson(`/api/history/${selectedCycleId}/votes`),
+      fetchJson(`/api/history/${selectedCycleId}/sleep-data`),
+      fetchJson(`/api/history/${selectedCycleId}/morning-state`),
+      fetchJson(`/api/history/${selectedCycleId}/work-sessions`),
     ])
       .then(([votes, sleep, morning, work]) => {
         if (!active) return
@@ -265,7 +274,7 @@ export default function HistoryTab() {
     return () => {
       active = false
     }
-  }, [selectedDate])
+  }, [selectedCycleId])
 
   if (historyError) {
     return (
@@ -275,7 +284,7 @@ export default function HistoryTab() {
     )
   }
 
-  if (!historyDates) {
+  if (!cycles) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
@@ -283,16 +292,17 @@ export default function HistoryTab() {
     )
   }
 
-  if (historyDates.length === 0) {
+  if (cycles.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <p className="text-center text-[15px] leading-relaxed text-white/25">
-          No history yet. Data archives daily at 3am.
+          No history yet. Complete a day cycle to see data here.
         </p>
       </div>
     )
   }
 
+  const selectedCycle = selectedCycleId ? cycleMap[selectedCycleId] : null
   const trendValues = Object.values(trendVotes)
   const maxAbsNet = Math.max(1, ...trendValues.map((value) => Math.abs(value.net)))
 
@@ -314,7 +324,7 @@ export default function HistoryTab() {
       <div className="px-6 pt-8 pb-4">
         <h1 className="text-[28px] font-bold tracking-tight">History</h1>
         <div className="mt-2 text-[13px] text-white/30">
-          {selectedDate ? formatFullDate(selectedDate) : '--'}
+          {selectedCycle ? formatFullCycleDate(selectedCycle.startedAt) : '--'}
         </div>
       </div>
 
@@ -323,12 +333,12 @@ export default function HistoryTab() {
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-widest text-white/15">Trend</p>
             <span className="text-[10px] font-medium uppercase tracking-widest text-white/15">
-              last {recentDates.length} days
+              last {recentCycles.length} cycles
             </span>
           </div>
           <div className="mt-4 flex gap-3 overflow-x-auto no-scrollbar pb-1">
-            {recentDates.map((date, index) => {
-              const trend = trendVotes[date] || { net: 0, hasVotes: false }
+            {recentCycles.map((cycle, index) => {
+              const trend = trendVotes[cycle.id] || { net: 0, hasVotes: false }
               const net = trend.net
               const absNet = Math.abs(net)
               const ratio = absNet / maxAbsNet
@@ -342,17 +352,17 @@ export default function HistoryTab() {
 
               return (
                 <button
-                  key={date}
+                  key={cycle.id}
                   type="button"
-                  onClick={() => setSelectedDate(date)}
+                  onClick={() => setSelectedCycleId(cycle.id)}
                   className={`flex min-w-[56px] flex-col items-center gap-2 rounded-2xl px-2 py-2 transition-colors ${
-                    selectedDate === date ? 'bg-white/[0.08]' : 'bg-white/[0.02]'
+                    selectedCycleId === cycle.id ? 'bg-white/[0.08]' : 'bg-white/[0.02]'
                   }`}
                 >
                   <span className={`text-[11px] font-medium ${
-                    selectedDate === date ? 'text-white/70' : 'text-white/35'
+                    selectedCycleId === cycle.id ? 'text-white/70' : 'text-white/35'
                   }`}>
-                    {formatDateLabel(date)}
+                    {formatCycleLabel(cycle.startedAt)}
                   </span>
                   <div className="relative h-12 w-3">
                     <div className="absolute left-0 right-0 top-1/2 h-px bg-white/[0.08]" />
@@ -379,7 +389,9 @@ export default function HistoryTab() {
         <div className="rounded-2xl bg-white/[0.04] p-4">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-widest text-white/15">Day Summary</p>
-            <span className="text-[11px] text-white/25">{selectedDate}</span>
+            <span className="text-[11px] text-white/25">
+              {selectedCycle ? `Cycle ${selectedCycle.cycleNumber}` : '--'}
+            </span>
           </div>
           {dayLoading ? (
             <div className="flex items-center justify-center py-8">

@@ -59,14 +59,37 @@ const seedUser = database.prepare(
 )
 seedUser.run(DEFAULT_USER_ID, 'stef', new Date().toISOString())
 
+// ─── Day Cycles ─────────────────────────────────────────────────────────────
+
+const dayCycleGetActive = database.prepare(
+  'SELECT * FROM day_cycles WHERE user_id = ? AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1'
+)
+const dayCycleGetById = database.prepare(
+  'SELECT * FROM day_cycles WHERE id = ? AND user_id = ?'
+)
+const dayCycleInsert = database.prepare(`
+  INSERT INTO day_cycles (id, user_id, cycle_number, started_at, ended_at, auto_expired)
+  VALUES (@id, @user_id, @cycle_number, @started_at, @ended_at, @auto_expired)
+`)
+const dayCycleEnd = database.prepare(`
+  UPDATE day_cycles SET ended_at = @ended_at, auto_expired = @auto_expired
+  WHERE id = @id AND user_id = @user_id
+`)
+const dayCycleMaxNumber = database.prepare(
+  'SELECT MAX(cycle_number) as max_num FROM day_cycles WHERE user_id = ?'
+)
+const dayCyclesGetAll = database.prepare(
+  'SELECT * FROM day_cycles WHERE user_id = ? ORDER BY cycle_number DESC'
+)
+
 // ─── Prepared statements ────────────────────────────────────────────────────
 
 // Sleep data
-const sleepDataGet = database.prepare('SELECT * FROM sleep_data WHERE user_id = ? AND date = ?')
+const sleepDataGet = database.prepare('SELECT * FROM sleep_data WHERE user_id = ? AND cycle_id = ?')
 const sleepDataUpsert = database.prepare(`
-  INSERT INTO sleep_data (user_id, date, created_at, source, hours_slept, quality, sleep_score, wake_up_mood, notes, raw_extracted)
-  VALUES (@user_id, @date, @created_at, @source, @hours_slept, @quality, @sleep_score, @wake_up_mood, @notes, @raw_extracted)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO sleep_data (user_id, cycle_id, created_at, source, hours_slept, quality, sleep_score, wake_up_mood, notes, raw_extracted)
+  VALUES (@user_id, @cycle_id, @created_at, @source, @hours_slept, @quality, @sleep_score, @wake_up_mood, @notes, @raw_extracted)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     source=COALESCE(@source, source), hours_slept=COALESCE(@hours_slept, hours_slept),
     quality=COALESCE(@quality, quality), sleep_score=COALESCE(@sleep_score, sleep_score),
     wake_up_mood=COALESCE(@wake_up_mood, wake_up_mood), notes=COALESCE(@notes, notes),
@@ -74,22 +97,22 @@ const sleepDataUpsert = database.prepare(`
 `)
 
 // Fitmind data
-const fitmindDataGet = database.prepare('SELECT * FROM fitmind_data WHERE user_id = ? AND date = ?')
+const fitmindDataGet = database.prepare('SELECT * FROM fitmind_data WHERE user_id = ? AND cycle_id = ?')
 const fitmindDataUpsert = database.prepare(`
-  INSERT INTO fitmind_data (user_id, date, created_at, source, workout_completed, duration, type, score, notes)
-  VALUES (@user_id, @date, @created_at, @source, @workout_completed, @duration, @type, @score, @notes)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO fitmind_data (user_id, cycle_id, created_at, source, workout_completed, duration, type, score, notes)
+  VALUES (@user_id, @cycle_id, @created_at, @source, @workout_completed, @duration, @type, @score, @notes)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     source=COALESCE(@source, source), workout_completed=COALESCE(@workout_completed, workout_completed),
     duration=COALESCE(@duration, duration), type=COALESCE(@type, type),
     score=COALESCE(@score, score), notes=COALESCE(@notes, notes)
 `)
 
 // Morning state
-const morningStateGet = database.prepare('SELECT * FROM morning_state WHERE user_id = ? AND date = ?')
+const morningStateGet = database.prepare('SELECT * FROM morning_state WHERE user_id = ? AND cycle_id = ?')
 const morningStateUpsert = database.prepare(`
-  INSERT INTO morning_state (user_id, date, created_at, updated_at, energy_score, mental_clarity, emotional_state, insights, day_priority, resistance_noted, resistance_description, overall_morning_score, raw_notes)
-  VALUES (@user_id, @date, @created_at, @updated_at, @energy_score, @mental_clarity, @emotional_state, @insights, @day_priority, @resistance_noted, @resistance_description, @overall_morning_score, @raw_notes)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO morning_state (user_id, cycle_id, created_at, updated_at, energy_score, mental_clarity, emotional_state, insights, day_priority, resistance_noted, resistance_description, overall_morning_score, raw_notes)
+  VALUES (@user_id, @cycle_id, @created_at, @updated_at, @energy_score, @mental_clarity, @emotional_state, @insights, @day_priority, @resistance_noted, @resistance_description, @overall_morning_score, @raw_notes)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     updated_at=@updated_at,
     energy_score=COALESCE(@energy_score, energy_score), mental_clarity=COALESCE(@mental_clarity, mental_clarity),
     emotional_state=COALESCE(@emotional_state, emotional_state), insights=COALESCE(@insights, insights),
@@ -99,11 +122,11 @@ const morningStateUpsert = database.prepare(`
 `)
 
 // Creative state
-const creativeStateGet = database.prepare('SELECT * FROM creative_state WHERE user_id = ? AND date = ?')
+const creativeStateGet = database.prepare('SELECT * FROM creative_state WHERE user_id = ? AND cycle_id = ?')
 const creativeStateUpsert = database.prepare(`
-  INSERT INTO creative_state (user_id, date, created_at, updated_at, activities, energy_score, creative_output, insights, nutrition, nutrition_score, dopamine_quality, mood_shift, raw_notes)
-  VALUES (@user_id, @date, @created_at, @updated_at, @activities, @energy_score, @creative_output, @insights, @nutrition, @nutrition_score, @dopamine_quality, @mood_shift, @raw_notes)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO creative_state (user_id, cycle_id, created_at, updated_at, activities, energy_score, creative_output, insights, nutrition, nutrition_score, dopamine_quality, mood_shift, raw_notes)
+  VALUES (@user_id, @cycle_id, @created_at, @updated_at, @activities, @energy_score, @creative_output, @insights, @nutrition, @nutrition_score, @dopamine_quality, @mood_shift, @raw_notes)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     updated_at=@updated_at,
     activities=COALESCE(@activities, activities), energy_score=COALESCE(@energy_score, energy_score),
     creative_output=COALESCE(@creative_output, creative_output), insights=COALESCE(@insights, insights),
@@ -113,46 +136,46 @@ const creativeStateUpsert = database.prepare(`
 `)
 
 // Creative block log
-const creativeBlockLogGet = database.prepare('SELECT * FROM creative_block_log WHERE user_id = ? AND date = ?')
+const creativeBlockLogGet = database.prepare('SELECT * FROM creative_block_log WHERE user_id = ? AND cycle_id = ?')
 const creativeBlockLogUpsert = database.prepare(`
-  INSERT INTO creative_block_log (user_id, date, started_at, completed_at, status)
-  VALUES (@user_id, @date, @started_at, @completed_at, @status)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO creative_block_log (user_id, cycle_id, started_at, completed_at, status)
+  VALUES (@user_id, @cycle_id, @started_at, @completed_at, @status)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     started_at=COALESCE(@started_at, started_at), completed_at=COALESCE(@completed_at, completed_at),
     status=COALESCE(@status, status)
 `)
 
 // Morning block log
-const morningBlockLogGet = database.prepare('SELECT * FROM morning_block_log WHERE user_id = ? AND date = ?')
+const morningBlockLogGet = database.prepare('SELECT * FROM morning_block_log WHERE user_id = ? AND cycle_id = ?')
 const morningBlockLogUpsert = database.prepare(`
-  INSERT INTO morning_block_log (user_id, date, started_at, completed_at)
-  VALUES (@user_id, @date, @started_at, @completed_at)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO morning_block_log (user_id, cycle_id, started_at, completed_at)
+  VALUES (@user_id, @cycle_id, @started_at, @completed_at)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     started_at=COALESCE(@started_at, started_at), completed_at=COALESCE(@completed_at, completed_at)
 `)
-const morningBlockItemsGet = database.prepare('SELECT * FROM morning_block_items WHERE user_id = ? AND date = ?')
+const morningBlockItemsGet = database.prepare('SELECT * FROM morning_block_items WHERE user_id = ? AND cycle_id = ?')
 const morningBlockItemUpsert = database.prepare(`
-  INSERT INTO morning_block_items (id, user_id, date, status, timestamp)
-  VALUES (@id, @user_id, @date, @status, @timestamp)
-  ON CONFLICT(user_id, date, id) DO UPDATE SET status=@status, timestamp=@timestamp
+  INSERT INTO morning_block_items (id, user_id, cycle_id, status, timestamp)
+  VALUES (@id, @user_id, @cycle_id, @status, @timestamp)
+  ON CONFLICT(user_id, cycle_id, id) DO UPDATE SET status=@status, timestamp=@timestamp
 `)
 
 // Midday checkin
-const middayCheckinGet = database.prepare('SELECT * FROM midday_checkin WHERE user_id = ? AND date = ?')
+const middayCheckinGet = database.prepare('SELECT * FROM midday_checkin WHERE user_id = ? AND cycle_id = ?')
 const middayCheckinUpsert = database.prepare(`
-  INSERT INTO midday_checkin (user_id, date, triggered_at, energy_score, notes, raw_notes)
-  VALUES (@user_id, @date, @triggered_at, @energy_score, @notes, @raw_notes)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO midday_checkin (user_id, cycle_id, triggered_at, energy_score, notes, raw_notes)
+  VALUES (@user_id, @cycle_id, @triggered_at, @energy_score, @notes, @raw_notes)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     triggered_at=COALESCE(@triggered_at, triggered_at),
     energy_score=COALESCE(@energy_score, energy_score), notes=COALESCE(@notes, notes),
     raw_notes=COALESCE(@raw_notes, raw_notes)
 `)
 
 // Votes
-const votesGetByDate = database.prepare('SELECT * FROM votes WHERE user_id = ? AND date = ?')
+const votesGetByCycle = database.prepare('SELECT * FROM votes WHERE user_id = ? AND cycle_id = ?')
 const voteInsert = database.prepare(`
-  INSERT INTO votes (id, user_id, date, timestamp, action, category, polarity, source, weight)
-  VALUES (@id, @user_id, @date, @timestamp, @action, @category, @polarity, @source, @weight)
+  INSERT INTO votes (id, user_id, cycle_id, timestamp, action, category, polarity, source, weight)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @action, @category, @polarity, @source, @weight)
 `)
 
 // Events
@@ -163,11 +186,11 @@ const eventInsert = database.prepare(`
 `)
 
 // Work sessions
-const workSessionsGetByDate = database.prepare('SELECT * FROM work_sessions WHERE user_id = ? AND date = ?')
+const workSessionsGetByCycle = database.prepare('SELECT * FROM work_sessions WHERE user_id = ? AND cycle_id = ?')
 const workSessionGet = database.prepare('SELECT * FROM work_sessions WHERE id = ? AND user_id = ?')
 const workSessionInsert = database.prepare(`
-  INSERT INTO work_sessions (id, user_id, date, started_at, ended_at, duration_minutes, focus, evaluation_criteria, outcomes, outcome_score, flow_score, composite_score, meal, nutrition_score, notes)
-  VALUES (@id, @user_id, @date, @started_at, @ended_at, @duration_minutes, @focus, @evaluation_criteria, @outcomes, @outcome_score, @flow_score, @composite_score, @meal, @nutrition_score, @notes)
+  INSERT INTO work_sessions (id, user_id, cycle_id, started_at, ended_at, duration_minutes, focus, evaluation_criteria, outcomes, outcome_score, flow_score, composite_score, meal, nutrition_score, notes)
+  VALUES (@id, @user_id, @cycle_id, @started_at, @ended_at, @duration_minutes, @focus, @evaluation_criteria, @outcomes, @outcome_score, @flow_score, @composite_score, @meal, @nutrition_score, @notes)
   ON CONFLICT(id) DO UPDATE SET
     started_at=COALESCE(@started_at, started_at), focus=COALESCE(@focus, focus),
     evaluation_criteria=COALESCE(@evaluation_criteria, evaluation_criteria)
@@ -180,21 +203,21 @@ const workSessionEnd = database.prepare(`
 `)
 
 // Night routine
-const nightRoutineGet = database.prepare('SELECT * FROM night_routine WHERE user_id = ? AND date = ?')
+const nightRoutineGet = database.prepare('SELECT * FROM night_routine WHERE user_id = ? AND cycle_id = ?')
 const nightRoutineUpsert = database.prepare(`
-  INSERT INTO night_routine (user_id, date, started_at, completed_at,
+  INSERT INTO night_routine (user_id, cycle_id, started_at, completed_at,
     letting_go_completed, letting_go_timestamp, nervous_system_completed, nervous_system_timestamp,
     body_scan_completed, body_scan_timestamp, alter_memories_completed, alter_memories_timestamp,
     day_review_completed, day_review_timestamp, plan_completed, plan_timestamp, plan_text,
     plan_finalized, plan_finalized_timestamp, prompts_reviewed, prompts_timestamp,
     vf_game_completed, visualization_completed, lights_out, lights_out_timestamp)
-  VALUES (@user_id, @date, @started_at, @completed_at,
+  VALUES (@user_id, @cycle_id, @started_at, @completed_at,
     @letting_go_completed, @letting_go_timestamp, @nervous_system_completed, @nervous_system_timestamp,
     @body_scan_completed, @body_scan_timestamp, @alter_memories_completed, @alter_memories_timestamp,
     @day_review_completed, @day_review_timestamp, @plan_completed, @plan_timestamp, @plan_text,
     @plan_finalized, @plan_finalized_timestamp, @prompts_reviewed, @prompts_timestamp,
     @vf_game_completed, @visualization_completed, @lights_out, @lights_out_timestamp)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     started_at=COALESCE(@started_at, started_at), completed_at=COALESCE(@completed_at, completed_at),
     letting_go_completed=COALESCE(@letting_go_completed, letting_go_completed),
     letting_go_timestamp=COALESCE(@letting_go_timestamp, letting_go_timestamp),
@@ -220,63 +243,63 @@ const nightRoutineUpsert = database.prepare(`
 `)
 
 // Nutrition
-const nutritionGetByDate = database.prepare('SELECT * FROM nutrition WHERE user_id = ? AND date = ?')
+const nutritionGetByCycle = database.prepare('SELECT * FROM nutrition WHERE user_id = ? AND cycle_id = ?')
 const nutritionInsert = database.prepare(`
-  INSERT INTO nutrition (id, user_id, date, timestamp, meal, time, nutrition_score, notes)
-  VALUES (@id, @user_id, @date, @timestamp, @meal, @time, @nutrition_score, @notes)
+  INSERT INTO nutrition (id, user_id, cycle_id, timestamp, meal, time, nutrition_score, notes)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @meal, @time, @nutrition_score, @notes)
 `)
 
 // Dopamine
-const dopamineDailyGet = database.prepare('SELECT * FROM dopamine_daily WHERE user_id = ? AND date = ?')
+const dopamineDailyGet = database.prepare('SELECT * FROM dopamine_daily WHERE user_id = ? AND cycle_id = ?')
 const dopamineDailyUpsert = database.prepare(`
-  INSERT INTO dopamine_daily (user_id, date, screen_minutes, screen_pickups, screen_top_apps, screen_captured_at, net_score)
-  VALUES (@user_id, @date, @screen_minutes, @screen_pickups, @screen_top_apps, @screen_captured_at, @net_score)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO dopamine_daily (user_id, cycle_id, screen_minutes, screen_pickups, screen_top_apps, screen_captured_at, net_score)
+  VALUES (@user_id, @cycle_id, @screen_minutes, @screen_pickups, @screen_top_apps, @screen_captured_at, @net_score)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     screen_minutes=COALESCE(@screen_minutes, screen_minutes),
     screen_pickups=COALESCE(@screen_pickups, screen_pickups),
     screen_top_apps=COALESCE(@screen_top_apps, screen_top_apps),
     screen_captured_at=COALESCE(@screen_captured_at, screen_captured_at),
     net_score=@net_score
 `)
-const dopamineFarmingGetByDate = database.prepare('SELECT * FROM dopamine_farming WHERE user_id = ? AND date = ?')
+const dopamineFarmingGetByCycle = database.prepare('SELECT * FROM dopamine_farming WHERE user_id = ? AND cycle_id = ?')
 const dopamineFarmingGet = database.prepare('SELECT * FROM dopamine_farming WHERE id = ? AND user_id = ?')
 const dopamineFarmingInsert = database.prepare(`
-  INSERT INTO dopamine_farming (id, user_id, date, started_at, ended_at, duration_minutes, points)
-  VALUES (@id, @user_id, @date, @started_at, @ended_at, @duration_minutes, @points)
+  INSERT INTO dopamine_farming (id, user_id, cycle_id, started_at, ended_at, duration_minutes, points)
+  VALUES (@id, @user_id, @cycle_id, @started_at, @ended_at, @duration_minutes, @points)
 `)
 const dopamineFarmingEnd = database.prepare(`
   UPDATE dopamine_farming SET ended_at=@ended_at, duration_minutes=@duration_minutes, points=@points
   WHERE id=@id AND user_id=@user_id
 `)
-const dopamineOverstimGetByDate = database.prepare('SELECT * FROM dopamine_overstimulation WHERE user_id = ? AND date = ?')
+const dopamineOverstimGetByCycle = database.prepare('SELECT * FROM dopamine_overstimulation WHERE user_id = ? AND cycle_id = ?')
 const dopamineOverstimInsert = database.prepare(`
-  INSERT INTO dopamine_overstimulation (id, user_id, date, timestamp, type, notes)
-  VALUES (@id, @user_id, @date, @timestamp, @type, @notes)
+  INSERT INTO dopamine_overstimulation (id, user_id, cycle_id, timestamp, type, notes)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @type, @notes)
 `)
 
 // Episode
-const episodeGet = database.prepare('SELECT * FROM episodes WHERE user_id = ? AND date = ?')
+const episodeGet = database.prepare('SELECT * FROM episodes WHERE user_id = ? AND cycle_id = ?')
 const episodeUpsert = database.prepare(`
-  INSERT INTO episodes (user_id, date, number, title, previously_on, todays_arc, rating, status)
-  VALUES (@user_id, @date, @number, @title, @previously_on, @todays_arc, @rating, @status)
-  ON CONFLICT(user_id, date) DO UPDATE SET
+  INSERT INTO episodes (user_id, cycle_id, number, title, previously_on, todays_arc, rating, status)
+  VALUES (@user_id, @cycle_id, @number, @title, @previously_on, @todays_arc, @rating, @status)
+  ON CONFLICT(user_id, cycle_id) DO UPDATE SET
     number=COALESCE(@number, number), title=COALESCE(@title, title),
     previously_on=COALESCE(@previously_on, previously_on), todays_arc=COALESCE(@todays_arc, todays_arc),
     rating=COALESCE(@rating, rating), status=COALESCE(@status, status)
 `)
-const plotPointsGetByDate = database.prepare('SELECT * FROM plot_points WHERE user_id = ? AND date = ?')
+const plotPointsGetByCycle = database.prepare('SELECT * FROM plot_points WHERE user_id = ? AND cycle_id = ?')
 const plotPointInsert = database.prepare(`
-  INSERT INTO plot_points (id, user_id, date, timestamp, description, type)
-  VALUES (@id, @user_id, @date, @timestamp, @description, @type)
+  INSERT INTO plot_points (id, user_id, cycle_id, timestamp, description, type)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @description, @type)
 `)
 const episodesGetAll = database.prepare('SELECT * FROM episodes WHERE user_id = ? AND number IS NOT NULL ORDER BY number DESC')
 const episodeMaxNumber = database.prepare('SELECT MAX(number) as max_num FROM episodes WHERE user_id = ?')
 
 // VF Game
-const vfSessionsGetByDate = database.prepare('SELECT * FROM vf_sessions WHERE user_id = ? AND date = ?')
+const vfSessionsGetByCycle = database.prepare('SELECT * FROM vf_sessions WHERE user_id = ? AND cycle_id = ?')
 const vfSessionInsert = database.prepare(`
-  INSERT INTO vf_sessions (id, user_id, date, timestamp, presence_score, boss_encountered, key_decisions_linked, closing, notes)
-  VALUES (@id, @user_id, @date, @timestamp, @presence_score, @boss_encountered, @key_decisions_linked, @closing, @notes)
+  INSERT INTO vf_sessions (id, user_id, cycle_id, timestamp, presence_score, boss_encountered, key_decisions_linked, closing, notes)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @presence_score, @boss_encountered, @key_decisions_linked, @closing, @notes)
 `)
 const vfAffirmationInsert = database.prepare(`
   INSERT INTO vf_affirmations (user_id, session_id, affirmation_index, conviction_score, resistance_score, exploration, resistance)
@@ -285,38 +308,38 @@ const vfAffirmationInsert = database.prepare(`
 const vfAffirmationsGetBySession = database.prepare('SELECT * FROM vf_affirmations WHERE session_id = ?')
 
 // Key decisions
-const keyDecisionsGetByDate = database.prepare('SELECT * FROM key_decisions WHERE user_id = ? AND date = ?')
+const keyDecisionsGetByCycle = database.prepare('SELECT * FROM key_decisions WHERE user_id = ? AND cycle_id = ?')
 const keyDecisionInsert = database.prepare(`
-  INSERT INTO key_decisions (id, user_id, date, timestamp, description, type, multiplier, affirmation_index, notes)
-  VALUES (@id, @user_id, @date, @timestamp, @description, @type, @multiplier, @affirmation_index, @notes)
+  INSERT INTO key_decisions (id, user_id, cycle_id, timestamp, description, type, multiplier, affirmation_index, notes)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @description, @type, @multiplier, @affirmation_index, @notes)
 `)
 
 // Badge progress
 const badgeProgressGet = database.prepare('SELECT * FROM badge_progress WHERE user_id = ? AND badge_slug = ?')
 const badgeProgressGetAll = database.prepare('SELECT * FROM badge_progress WHERE user_id = ?')
 const badgeProgressUpsert = database.prepare(`
-  INSERT INTO badge_progress (user_id, badge_slug, tier, tier_name, xp, exercises_completed, missions_completed, missions_failed, boss_encounters, current_streak, longest_streak, last_activity_date, last_updated)
-  VALUES (@user_id, @badge_slug, @tier, @tier_name, @xp, @exercises_completed, @missions_completed, @missions_failed, @boss_encounters, @current_streak, @longest_streak, @last_activity_date, @last_updated)
+  INSERT INTO badge_progress (user_id, badge_slug, tier, tier_name, xp, exercises_completed, missions_completed, missions_failed, boss_encounters, current_streak, longest_streak, last_cycle_number, last_updated)
+  VALUES (@user_id, @badge_slug, @tier, @tier_name, @xp, @exercises_completed, @missions_completed, @missions_failed, @boss_encounters, @current_streak, @longest_streak, @last_cycle_number, @last_updated)
   ON CONFLICT(user_id, badge_slug) DO UPDATE SET
     tier=@tier, tier_name=@tier_name, xp=@xp,
     exercises_completed=@exercises_completed, missions_completed=@missions_completed,
     missions_failed=@missions_failed, boss_encounters=@boss_encounters,
     current_streak=@current_streak, longest_streak=@longest_streak,
-    last_activity_date=@last_activity_date, last_updated=@last_updated
+    last_cycle_number=@last_cycle_number, last_updated=@last_updated
 `)
 
 // Badge exercises
-const badgeExercisesGetByDate = database.prepare('SELECT * FROM badge_exercises WHERE user_id = ? AND date = ?')
+const badgeExercisesGetByCycle = database.prepare('SELECT * FROM badge_exercises WHERE user_id = ? AND cycle_id = ?')
 const badgeExerciseInsert = database.prepare(`
-  INSERT INTO badge_exercises (user_id, date, badge_slug, exercise_id, timestamp, xp_gained)
-  VALUES (@user_id, @date, @badge_slug, @exercise_id, @timestamp, @xp_gained)
+  INSERT INTO badge_exercises (user_id, cycle_id, badge_slug, exercise_id, timestamp, xp_gained)
+  VALUES (@user_id, @cycle_id, @badge_slug, @exercise_id, @timestamp, @xp_gained)
 `)
 
 // Badge mission attempts
-const badgeMissionAttemptsGetByDate = database.prepare('SELECT * FROM badge_mission_attempts WHERE user_id = ? AND date = ?')
+const badgeMissionAttemptsGetByCycle = database.prepare('SELECT * FROM badge_mission_attempts WHERE user_id = ? AND cycle_id = ?')
 const badgeMissionAttemptInsert = database.prepare(`
-  INSERT INTO badge_mission_attempts (user_id, date, mission_id, badge_slug, success, xp_gained, timestamp)
-  VALUES (@user_id, @date, @mission_id, @badge_slug, @success, @xp_gained, @timestamp)
+  INSERT INTO badge_mission_attempts (user_id, cycle_id, mission_id, badge_slug, success, xp_gained, timestamp)
+  VALUES (@user_id, @cycle_id, @mission_id, @badge_slug, @success, @xp_gained, @timestamp)
 `)
 
 // Badge missions active
@@ -327,11 +350,7 @@ const badgeMissionActiveInsert = database.prepare(`
   VALUES (@user_id, @mission_id, @badge_slug, @title, @description, @success_criteria, @reward_xp, @fail_xp, @min_tier, @assigned_at, @status)
 `)
 const badgeMissionActiveDelete = database.prepare('DELETE FROM badge_missions_active WHERE user_id = ? AND mission_id = ?')
-const badgeMissionsActiveExpire = database.prepare(`
-  UPDATE badge_missions_active SET status = 'expired' WHERE user_id = ? AND status = 'pending'
-`)
 const badgeMissionsActiveGetPending = database.prepare(`SELECT * FROM badge_missions_active WHERE user_id = ? AND status = 'pending'`)
-const badgeMissionsActiveDeleteAll = database.prepare('DELETE FROM badge_missions_active WHERE user_id = ? AND status != \'pending\'')
 
 // Badge missions completed
 const badgeMissionsCompletedGetAll = database.prepare('SELECT * FROM badge_missions_completed WHERE user_id = ? ORDER BY completed_at DESC')
@@ -342,20 +361,20 @@ const badgeMissionCompletedInsert = database.prepare(`
 
 // Boss encounters
 const bossEncounterInsert = database.prepare(`
-  INSERT INTO boss_encounters (id, user_id, timestamp, badge_slug, affirmation_index, type, title, content, faced, xp_awarded, source)
-  VALUES (@id, @user_id, @timestamp, @badge_slug, @affirmation_index, @type, @title, @content, @faced, @xp_awarded, @source)
+  INSERT INTO boss_encounters (id, user_id, cycle_id, timestamp, badge_slug, affirmation_index, type, title, content, faced, xp_awarded, source)
+  VALUES (@id, @user_id, @cycle_id, @timestamp, @badge_slug, @affirmation_index, @type, @title, @content, @faced, @xp_awarded, @source)
 `)
 const bossEncountersGetAll = database.prepare('SELECT * FROM boss_encounters WHERE user_id = ? ORDER BY timestamp')
 const bossEncountersGetByBadge = database.prepare('SELECT * FROM boss_encounters WHERE user_id = ? AND badge_slug = ? ORDER BY timestamp')
-const bossEncountersGetTodayFaced = database.prepare(`
-  SELECT * FROM boss_encounters WHERE user_id = ? AND substr(timestamp, 1, 10) = ? AND faced = 1
+const bossEncountersGetByCycleFaced = database.prepare(`
+  SELECT * FROM boss_encounters WHERE user_id = ? AND cycle_id = ? AND faced = 1
 `)
 
 // VF Chapters
 const vfChaptersGetAll = database.prepare('SELECT * FROM vf_chapters WHERE user_id = ? ORDER BY chapter')
 const vfChapterInsert = database.prepare(`
-  INSERT INTO vf_chapters (id, user_id, chapter, date, timestamp, title, narrative, vf_score, key_moments, bosses_named, affirmation_shifts, mood)
-  VALUES (@id, @user_id, @chapter, @date, @timestamp, @title, @narrative, @vf_score, @key_moments, @bosses_named, @affirmation_shifts, @mood)
+  INSERT INTO vf_chapters (id, user_id, cycle_id, chapter, timestamp, title, narrative, vf_score, key_moments, bosses_named, affirmation_shifts, mood)
+  VALUES (@id, @user_id, @cycle_id, @chapter, @timestamp, @title, @narrative, @vf_score, @key_moments, @bosses_named, @affirmation_shifts, @mood)
 `)
 const vfChapterMaxNumber = database.prepare('SELECT MAX(chapter) as max_ch FROM vf_chapters WHERE user_id = ?')
 
@@ -381,17 +400,6 @@ const apiCallsGet = database.prepare(`
 `)
 const apiCallsGetByUser = database.prepare(`
   SELECT * FROM api_calls WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?
-`)
-
-// History: get distinct dates that have data
-const historyDates = database.prepare(`
-  SELECT DISTINCT date FROM (
-    SELECT date FROM sleep_data WHERE user_id = ?
-    UNION SELECT date FROM morning_state WHERE user_id = ?
-    UNION SELECT date FROM votes WHERE user_id = ?
-    UNION SELECT date FROM work_sessions WHERE user_id = ?
-    UNION SELECT date FROM episodes WHERE user_id = ?
-  ) ORDER BY date DESC
 `)
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -437,7 +445,7 @@ const logDopamineOverstimTx = database.transaction((overstim, dailyUpdate, vote)
   voteInsert.run(vote)
 })
 
-const assignMissionsTx = database.transaction((userId, nowIso, expiredMissions, newMissions) => {
+const assignMissionsTx = database.transaction((userId, nowIso, cycleId, newMissions) => {
   // Move pending to expired
   const pending = badgeMissionsActiveGetPending.all(userId)
   for (const m of pending) {
@@ -455,8 +463,8 @@ const assignMissionsTx = database.transaction((userId, nowIso, expiredMissions, 
     badgeMissionActiveInsert.run(m)
   }
 
-  // Update meta
-  metaUpsert.run(userId, 'missions_last_assigned', nowIso.slice(0, 10))
+  // Update meta with cycle_id instead of date
+  metaUpsert.run(userId, 'missions_last_assigned_cycle', cycleId)
 })
 
 const completeMissionTx = database.transaction((userId, mission, progressUpdate, dailyAttempt) => {
@@ -493,6 +501,12 @@ const exerciseBadgeTx = database.transaction((progressUpdate, dailyExercise) => 
 const db = {
   raw: database,
 
+  dayCycles: {
+    getActive: dayCycleGetActive, getById: dayCycleGetById,
+    insert: dayCycleInsert, end: dayCycleEnd,
+    maxNumber: dayCycleMaxNumber, getAll: dayCyclesGetAll
+  },
+
   sleepData: { get: sleepDataGet, upsert: sleepDataUpsert },
   fitmindData: { get: fitmindDataGet, upsert: fitmindDataUpsert },
   morningState: { get: morningStateGet, upsert: morningStateUpsert },
@@ -502,36 +516,36 @@ const db = {
   morningBlockItems: { get: morningBlockItemsGet, upsert: morningBlockItemUpsert },
   middayCheckin: { get: middayCheckinGet, upsert: middayCheckinUpsert },
 
-  votes: { getByDate: votesGetByDate, insert: voteInsert },
+  votes: { getByCycle: votesGetByCycle, insert: voteInsert },
   events: { getAll: eventsGetAll, insert: eventInsert },
 
   workSessions: {
-    getByDate: workSessionsGetByDate, get: workSessionGet,
+    getByCycle: workSessionsGetByCycle, get: workSessionGet,
     insert: workSessionInsert, end: workSessionEnd
   },
 
   nightRoutine: { get: nightRoutineGet, upsert: nightRoutineUpsert },
 
-  nutrition: { getByDate: nutritionGetByDate, insert: nutritionInsert },
+  nutrition: { getByCycle: nutritionGetByCycle, insert: nutritionInsert },
 
   dopamine: {
     daily: { get: dopamineDailyGet, upsert: dopamineDailyUpsert },
-    farming: { getByDate: dopamineFarmingGetByDate, get: dopamineFarmingGet, insert: dopamineFarmingInsert, end: dopamineFarmingEnd },
-    overstim: { getByDate: dopamineOverstimGetByDate, insert: dopamineOverstimInsert }
+    farming: { getByCycle: dopamineFarmingGetByCycle, get: dopamineFarmingGet, insert: dopamineFarmingInsert, end: dopamineFarmingEnd },
+    overstim: { getByCycle: dopamineOverstimGetByCycle, insert: dopamineOverstimInsert }
   },
 
   episodes: { get: episodeGet, upsert: episodeUpsert, getAll: episodesGetAll, maxNumber: episodeMaxNumber },
-  plotPoints: { getByDate: plotPointsGetByDate, insert: plotPointInsert },
+  plotPoints: { getByCycle: plotPointsGetByCycle, insert: plotPointInsert },
 
-  vfSessions: { getByDate: vfSessionsGetByDate, insert: vfSessionInsert },
+  vfSessions: { getByCycle: vfSessionsGetByCycle, insert: vfSessionInsert },
   vfAffirmations: { insert: vfAffirmationInsert, getBySession: vfAffirmationsGetBySession },
   vfChapters: { getAll: vfChaptersGetAll, insert: vfChapterInsert, maxNumber: vfChapterMaxNumber },
 
-  keyDecisions: { getByDate: keyDecisionsGetByDate, insert: keyDecisionInsert },
+  keyDecisions: { getByCycle: keyDecisionsGetByCycle, insert: keyDecisionInsert },
 
   badgeProgress: { get: badgeProgressGet, getAll: badgeProgressGetAll, upsert: badgeProgressUpsert },
-  badgeExercises: { getByDate: badgeExercisesGetByDate, insert: badgeExerciseInsert },
-  badgeMissionAttempts: { getByDate: badgeMissionAttemptsGetByDate, insert: badgeMissionAttemptInsert },
+  badgeExercises: { getByCycle: badgeExercisesGetByCycle, insert: badgeExerciseInsert },
+  badgeMissionAttempts: { getByCycle: badgeMissionAttemptsGetByCycle, insert: badgeMissionAttemptInsert },
 
   badgeMissionsActive: {
     getAll: badgeMissionsActiveGetAll, get: badgeMissionActiveGet,
@@ -541,14 +555,12 @@ const db = {
 
   bossEncounters: {
     insert: bossEncounterInsert, getAll: bossEncountersGetAll,
-    getByBadge: bossEncountersGetByBadge, getTodayFaced: bossEncountersGetTodayFaced
+    getByBadge: bossEncountersGetByBadge, getByCycleFaced: bossEncountersGetByCycleFaced
   },
 
   meta: { get: metaGet, upsert: metaUpsert },
   users: { getAll: usersGetAll, get: userGet, insert: userInsert },
   apiCalls: { insert: apiCallInsert, get: apiCallsGet, getByUser: apiCallsGetByUser },
-
-  historyDates,
 
   transactions: {
     logKeyDecision: logKeyDecisionTx,

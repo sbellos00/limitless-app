@@ -98,8 +98,7 @@ export default function WorkSessions({ onEnterNightMode }) {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data) return
-        const today = new Date().toISOString().slice(0, 10)
-        if (data.date !== today || !data.sessions?.length) return
+        if (!data.cycleId || !data.sessions?.length) return
         setLocal((prev) => {
           const next = { ...prev }
           for (const s of data.sessions) {

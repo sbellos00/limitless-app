@@ -78,7 +78,7 @@ function BalanceViz({ farmPoints, overstimEvents, netScore }) {
   const scoreColor = netScore >= 7 ? '#30D158' : netScore >= 4 ? '#FF9F0A' : '#FF453A'
 
   return (
-    <div className="relative rounded-2xl bg-white/[0.03] p-5 overflow-hidden">
+    <div className="relative rounded-2xl bg-white/[0.03] p-5">
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
         style={{
@@ -261,7 +261,7 @@ function FarmingSection({ farming, farmElapsed, onStart, onEnd }) {
               exit={{ opacity: 0, y: -10 }}
               whileTap={{ scale: 0.97 }}
               onClick={onStart}
-              className="w-full rounded-xl bg-white/[0.06] border border-white/[0.06] px-5 py-4 text-[15px] font-medium text-white/60"
+              className="w-full rounded-xl bg-white/[0.10] border border-white/[0.10] px-5 py-4 text-[15px] font-medium text-white/70"
             >
               Start Farming
             </motion.button>
@@ -307,7 +307,7 @@ function OverstimGrid({ onLog, todayCounts }) {
                     : {}
                 }
                 onClick={() => handleTap(type)}
-                className="relative flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.03] px-2 py-3 active:bg-red-500/10 transition-colors"
+                className="relative flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.08] border border-white/[0.08] px-2 py-3 active:bg-red-500/15 transition-colors"
               >
                 <AnimatePresence>
                   {isFlashing && (
@@ -327,10 +327,10 @@ function OverstimGrid({ onLog, todayCounts }) {
                   </span>
                 )}
 
-                <span className="text-white/40">
+                <span className="text-white/50">
                   <OverstimIcon type={type} size={20} />
                 </span>
-                <span className="text-[10px] text-white/30">{label}</span>
+                <span className="text-[10px] text-white/40">{label}</span>
               </motion.button>
             )
           })}

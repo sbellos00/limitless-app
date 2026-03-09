@@ -1,4 +1,6 @@
-# Limitless System — Data Schema
+> **OUTDATED** — This doc describes the old JSON-file / date-keyed architecture. The system now uses SQLite with cycle-based keys (`cycle_id` FK to `day_cycles`). See `schema.sql` for the current source of truth.
+
+# Limitless System — Data Schema (ARCHIVED)
 
 All runtime data lives in `~/.openclaw/data/shared/` (configurable via `DATA_DIR` env var).
 Each file resets daily (keyed by `date: YYYY-MM-DD`) except JSONL files which are append-only.

@@ -1,5 +1,6 @@
 -- Limitless App — SQLite Schema (single source of truth)
 -- All tables scoped by user_id for multi-user support.
+-- Day lifecycle uses cycle_id (not calendar dates) for timezone independence.
 
 -- ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,21 @@ CREATE TABLE IF NOT EXISTS users (
   created_at  TEXT NOT NULL,
   is_default  INTEGER NOT NULL DEFAULT 0
 );
+
+-- ─── Day Cycles ──────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS day_cycles (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id),
+  cycle_number  INTEGER NOT NULL,
+  started_at    TEXT NOT NULL,
+  ended_at      TEXT,
+  auto_expired  INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(user_id, cycle_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_day_cycles_active ON day_cycles(user_id, ended_at);
+CREATE INDEX IF NOT EXISTS idx_day_cycles_user ON day_cycles(user_id, started_at);
 
 -- ─── API Call Logging ─────────────────────────────────────────────────────────
 
@@ -31,39 +47,39 @@ CREATE INDEX IF NOT EXISTS idx_api_calls_timestamp ON api_calls(timestamp);
 CREATE INDEX IF NOT EXISTS idx_api_calls_user ON api_calls(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_calls_source ON api_calls(source);
 
--- ─── Daily tables (one row per user+date) ─────────────────────────────────────
+-- ─── Daily tables (one row per user+cycle) ───────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS morning_block_log (
   user_id      TEXT NOT NULL REFERENCES users(id),
-  date         TEXT NOT NULL,
+  cycle_id     TEXT NOT NULL REFERENCES day_cycles(id),
   started_at   TEXT,
   completed_at TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS morning_block_items (
   id        TEXT NOT NULL,
   user_id   TEXT NOT NULL REFERENCES users(id),
-  date      TEXT NOT NULL,
+  cycle_id  TEXT NOT NULL REFERENCES day_cycles(id),
   status    TEXT NOT NULL,
   timestamp TEXT NOT NULL,
-  PRIMARY KEY (user_id, date, id)
+  PRIMARY KEY (user_id, cycle_id, id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_morning_block_items_date ON morning_block_items(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_morning_block_items_cycle ON morning_block_items(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS creative_block_log (
   user_id      TEXT NOT NULL REFERENCES users(id),
-  date         TEXT NOT NULL,
+  cycle_id     TEXT NOT NULL REFERENCES day_cycles(id),
   started_at   TEXT,
   completed_at TEXT,
   status       TEXT NOT NULL DEFAULT 'not_started',
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS sleep_data (
   user_id       TEXT NOT NULL REFERENCES users(id),
-  date          TEXT NOT NULL,
+  cycle_id      TEXT NOT NULL REFERENCES day_cycles(id),
   created_at    TEXT,
   source        TEXT,
   hours_slept   REAL,
@@ -72,12 +88,12 @@ CREATE TABLE IF NOT EXISTS sleep_data (
   wake_up_mood  TEXT,
   notes         TEXT,
   raw_extracted TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS fitmind_data (
   user_id           TEXT NOT NULL REFERENCES users(id),
-  date              TEXT NOT NULL,
+  cycle_id          TEXT NOT NULL REFERENCES day_cycles(id),
   created_at        TEXT,
   source            TEXT,
   workout_completed INTEGER,
@@ -85,12 +101,12 @@ CREATE TABLE IF NOT EXISTS fitmind_data (
   type              TEXT,
   score             REAL,
   notes             TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS morning_state (
   user_id                TEXT NOT NULL REFERENCES users(id),
-  date                   TEXT NOT NULL,
+  cycle_id               TEXT NOT NULL REFERENCES day_cycles(id),
   created_at             TEXT,
   updated_at             TEXT,
   energy_score           REAL,
@@ -102,12 +118,12 @@ CREATE TABLE IF NOT EXISTS morning_state (
   resistance_description TEXT,
   overall_morning_score  REAL,
   raw_notes              TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS creative_state (
   user_id          TEXT NOT NULL REFERENCES users(id),
-  date             TEXT NOT NULL,
+  cycle_id         TEXT NOT NULL REFERENCES day_cycles(id),
   created_at       TEXT,
   updated_at       TEXT,
   activities       TEXT,
@@ -119,13 +135,13 @@ CREATE TABLE IF NOT EXISTS creative_state (
   dopamine_quality TEXT,
   mood_shift       TEXT,
   raw_notes        TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS work_sessions (
   id                  TEXT PRIMARY KEY,
   user_id             TEXT NOT NULL REFERENCES users(id),
-  date                TEXT NOT NULL,
+  cycle_id            TEXT NOT NULL REFERENCES day_cycles(id),
   started_at          TEXT,
   ended_at            TEXT,
   duration_minutes    INTEGER DEFAULT 90,
@@ -140,12 +156,12 @@ CREATE TABLE IF NOT EXISTS work_sessions (
   notes               TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_work_sessions_date ON work_sessions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_work_sessions_cycle ON work_sessions(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS votes (
   id        TEXT PRIMARY KEY,
   user_id   TEXT NOT NULL REFERENCES users(id),
-  date      TEXT NOT NULL,
+  cycle_id  TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp TEXT NOT NULL,
   action    TEXT NOT NULL,
   category  TEXT NOT NULL,
@@ -154,12 +170,12 @@ CREATE TABLE IF NOT EXISTS votes (
   weight    INTEGER DEFAULT 1
 );
 
-CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_votes_cycle ON votes(user_id, cycle_id);
 CREATE INDEX IF NOT EXISTS idx_votes_category ON votes(category);
 
 CREATE TABLE IF NOT EXISTS night_routine (
   user_id                        TEXT NOT NULL REFERENCES users(id),
-  date                           TEXT NOT NULL,
+  cycle_id                       TEXT NOT NULL REFERENCES day_cycles(id),
   started_at                     TEXT,
   completed_at                   TEXT,
   letting_go_completed           INTEGER DEFAULT 0,
@@ -183,23 +199,23 @@ CREATE TABLE IF NOT EXISTS night_routine (
   visualization_completed        INTEGER DEFAULT 0,
   lights_out                     INTEGER DEFAULT 0,
   lights_out_timestamp           TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS midday_checkin (
   user_id      TEXT NOT NULL REFERENCES users(id),
-  date         TEXT NOT NULL,
+  cycle_id     TEXT NOT NULL REFERENCES day_cycles(id),
   triggered_at TEXT,
   energy_score REAL,
   notes        TEXT,
   raw_notes    TEXT,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS nutrition (
   id              TEXT PRIMARY KEY,
   user_id         TEXT NOT NULL REFERENCES users(id),
-  date            TEXT NOT NULL,
+  cycle_id        TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp       TEXT NOT NULL,
   meal            TEXT NOT NULL,
   time            TEXT,
@@ -207,75 +223,75 @@ CREATE TABLE IF NOT EXISTS nutrition (
   notes           TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_nutrition_date ON nutrition(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_nutrition_cycle ON nutrition(user_id, cycle_id);
 
 -- ─── Dopamine ─────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS dopamine_daily (
   user_id        TEXT NOT NULL REFERENCES users(id),
-  date           TEXT NOT NULL,
+  cycle_id       TEXT NOT NULL REFERENCES day_cycles(id),
   screen_minutes REAL,
   screen_pickups INTEGER,
   screen_top_apps TEXT,
   screen_captured_at TEXT,
   net_score      REAL DEFAULT 5,
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS dopamine_farming (
   id               TEXT PRIMARY KEY,
   user_id          TEXT NOT NULL REFERENCES users(id),
-  date             TEXT NOT NULL,
+  cycle_id         TEXT NOT NULL REFERENCES day_cycles(id),
   started_at       TEXT NOT NULL,
   ended_at         TEXT,
   duration_minutes INTEGER DEFAULT 0,
   points           INTEGER DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_dopamine_farming_date ON dopamine_farming(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_dopamine_farming_cycle ON dopamine_farming(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS dopamine_overstimulation (
   id        TEXT PRIMARY KEY,
   user_id   TEXT NOT NULL REFERENCES users(id),
-  date      TEXT NOT NULL,
+  cycle_id  TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp TEXT NOT NULL,
   type      TEXT NOT NULL,
   notes     TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_dopamine_overstim_date ON dopamine_overstimulation(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_dopamine_overstim_cycle ON dopamine_overstimulation(user_id, cycle_id);
 
 -- ─── Episode ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS episodes (
   user_id       TEXT NOT NULL REFERENCES users(id),
-  date          TEXT NOT NULL,
+  cycle_id      TEXT NOT NULL REFERENCES day_cycles(id),
   number        INTEGER,
   title         TEXT,
   previously_on TEXT,
   todays_arc    TEXT,
   rating        REAL,
   status        TEXT DEFAULT 'open',
-  PRIMARY KEY (user_id, date)
+  PRIMARY KEY (user_id, cycle_id)
 );
 
 CREATE TABLE IF NOT EXISTS plot_points (
   id          TEXT PRIMARY KEY,
   user_id     TEXT NOT NULL REFERENCES users(id),
-  date        TEXT NOT NULL,
+  cycle_id    TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp   TEXT NOT NULL,
   description TEXT NOT NULL,
   type        TEXT DEFAULT 'moment'
 );
 
-CREATE INDEX IF NOT EXISTS idx_plot_points_date ON plot_points(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_plot_points_cycle ON plot_points(user_id, cycle_id);
 
 -- ─── VF Game ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS vf_sessions (
   id                   TEXT PRIMARY KEY,
   user_id              TEXT NOT NULL REFERENCES users(id),
-  date                 TEXT NOT NULL,
+  cycle_id             TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp            TEXT NOT NULL,
   presence_score       REAL,
   boss_encountered     TEXT,
@@ -284,7 +300,7 @@ CREATE TABLE IF NOT EXISTS vf_sessions (
   notes                TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_vf_sessions_date ON vf_sessions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_vf_sessions_cycle ON vf_sessions(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS vf_affirmations (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -302,7 +318,7 @@ CREATE TABLE IF NOT EXISTS vf_affirmations (
 CREATE TABLE IF NOT EXISTS key_decisions (
   id                TEXT PRIMARY KEY,
   user_id           TEXT NOT NULL REFERENCES users(id),
-  date              TEXT NOT NULL,
+  cycle_id          TEXT NOT NULL REFERENCES day_cycles(id),
   timestamp         TEXT NOT NULL,
   description       TEXT NOT NULL,
   type              TEXT NOT NULL,
@@ -311,7 +327,7 @@ CREATE TABLE IF NOT EXISTS key_decisions (
   notes             TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_key_decisions_date ON key_decisions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_key_decisions_cycle ON key_decisions(user_id, cycle_id);
 
 -- ─── Badge Progress (persistent, not daily) ──────────────────────────────────
 
@@ -327,7 +343,7 @@ CREATE TABLE IF NOT EXISTS badge_progress (
   boss_encounters     INTEGER DEFAULT 0,
   current_streak      INTEGER DEFAULT 0,
   longest_streak      INTEGER DEFAULT 0,
-  last_activity_date  TEXT,
+  last_cycle_number   INTEGER,
   last_updated        TEXT,
   PRIMARY KEY (user_id, badge_slug)
 );
@@ -337,19 +353,19 @@ CREATE TABLE IF NOT EXISTS badge_progress (
 CREATE TABLE IF NOT EXISTS badge_exercises (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    TEXT NOT NULL REFERENCES users(id),
-  date       TEXT NOT NULL,
+  cycle_id   TEXT NOT NULL REFERENCES day_cycles(id),
   badge_slug TEXT NOT NULL,
   exercise_id TEXT NOT NULL,
   timestamp  TEXT NOT NULL,
   xp_gained  INTEGER DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_badge_exercises_date ON badge_exercises(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_badge_exercises_cycle ON badge_exercises(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS badge_mission_attempts (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    TEXT NOT NULL REFERENCES users(id),
-  date       TEXT NOT NULL,
+  cycle_id   TEXT NOT NULL REFERENCES day_cycles(id),
   mission_id TEXT NOT NULL,
   badge_slug TEXT NOT NULL,
   success    INTEGER NOT NULL,
@@ -404,6 +420,7 @@ CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
 CREATE TABLE IF NOT EXISTS boss_encounters (
   id               TEXT PRIMARY KEY,
   user_id          TEXT NOT NULL REFERENCES users(id),
+  cycle_id         TEXT REFERENCES day_cycles(id),
   timestamp        TEXT NOT NULL,
   badge_slug       TEXT,
   affirmation_index INTEGER,
@@ -415,13 +432,13 @@ CREATE TABLE IF NOT EXISTS boss_encounters (
   source           TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_boss_encounters_user_date ON boss_encounters(user_id, substr(timestamp, 1, 10));
+CREATE INDEX IF NOT EXISTS idx_boss_encounters_cycle ON boss_encounters(user_id, cycle_id);
 
 CREATE TABLE IF NOT EXISTS vf_chapters (
   id                 TEXT PRIMARY KEY,
   user_id            TEXT NOT NULL REFERENCES users(id),
+  cycle_id           TEXT REFERENCES day_cycles(id),
   chapter            INTEGER NOT NULL,
-  date               TEXT NOT NULL,
   timestamp          TEXT NOT NULL,
   title              TEXT,
   narrative          TEXT NOT NULL,

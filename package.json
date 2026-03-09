@@ -8,8 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "migrate": "node server/migrate-to-sqlite.js"
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
     "@radix-ui/react-slider": "^1.3.6",

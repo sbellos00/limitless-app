@@ -93,43 +93,43 @@ app.use((req, res, next) => {
 
 const STUBS = {
   'morning-block-log': {
-    date: null, startedAt: null, completedAt: null,
+    cycleId: null, startedAt: null, completedAt: null,
     items: [], completedCount: 0, skippedCount: 0
   },
   'creative-block-log': {
-    date: null, startedAt: null, completedAt: null, status: 'not_started'
+    cycleId: null, startedAt: null, completedAt: null, status: 'not_started'
   },
   'sleep-data': {
-    date: null, createdAt: null, source: null, hoursSlept: null, quality: null,
+    cycleId: null, createdAt: null, source: null, hoursSlept: null, quality: null,
     sleepScore: null, wakeUpMood: null, notes: '', rawExtracted: {}
   },
   'fitmind-data': {
-    date: null, createdAt: null, source: null, workoutCompleted: null,
+    cycleId: null, createdAt: null, source: null, workoutCompleted: null,
     duration: null, type: null, score: null, notes: ''
   },
   'morning-state': {
-    date: null, createdAt: null, updatedAt: null,
+    cycleId: null, createdAt: null, updatedAt: null,
     energyScore: null, mentalClarity: null, emotionalState: null,
     insights: [], dayPriority: null, resistanceNoted: null,
     resistanceDescription: null, overallMorningScore: null, rawNotes: ''
   },
   'creative-state': {
-    date: null, createdAt: null, updatedAt: null,
+    cycleId: null, createdAt: null, updatedAt: null,
     activities: [], energyScore: null, creativeOutput: null,
     insights: [], nutrition: { logged: false, meal: null, notes: '' },
     nutritionScore: null, dopamineQuality: null,
     moodShift: null, rawNotes: ''
   },
   'work-sessions': {
-    date: null, sessions: [], totalSessions: 3,
+    cycleId: null, sessions: [], totalSessions: 3,
     completedSessions: 0, lunchBreakLogged: false,
     lunchMeal: null, lunchNutritionScore: null
   },
   'votes': {
-    date: null, votes: []
+    cycleId: null, votes: []
   },
   'night-routine': {
-    date: null, startedAt: null, completedAt: null,
+    cycleId: null, startedAt: null, completedAt: null,
     windDown: {
       lettingGoCompleted: false, lettingGoTimestamp: null,
       nervousSystemCompleted: false, nervousSystemTimestamp: null,
@@ -150,31 +150,31 @@ const STUBS = {
     }
   },
   'midday-checkin': {
-    date: null, triggeredAt: null, energyScore: null, notes: '', rawNotes: ''
+    cycleId: null, triggeredAt: null, energyScore: null, notes: '', rawNotes: ''
   },
   'nutrition': {
-    date: null, meals: [], averageScore: null, totalMeals: 0
+    cycleId: null, meals: [], averageScore: null, totalMeals: 0
   },
   'dopamine': {
-    date: null,
+    cycleId: null,
     farming: { sessions: [], totalPoints: 0, totalMinutes: 0 },
     overstimulation: { events: [], totalEvents: 0 },
     screenTime: { totalMinutes: null, pickups: null, topApps: [], capturedAt: null },
     netScore: 5
   },
   'episode': {
-    date: null, number: null,
+    cycleId: null, number: null,
     title: '', previouslyOn: '', todaysArc: '',
     plotPoints: [], rating: null, status: 'open'
   },
   'key-decisions': {
-    date: null, decisions: [], totalMultipliedWeight: 0
+    cycleId: null, decisions: [], totalMultipliedWeight: 0
   },
   'vf-game': {
-    date: null, sessions: []
+    cycleId: null, sessions: []
   },
   'badge-daily': {
-    date: null, exercises: [], missionsAttempted: [], xpGained: {}
+    cycleId: null, exercises: [], missionsAttempted: [], xpGained: {}
   }
 }
 
@@ -183,7 +183,7 @@ const freshStub = (name) => structuredClone(STUBS[name])
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const nowIso = () => new Date().toISOString()
-const todayStr = () => new Date().toISOString().slice(0, 10)
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const pick = (obj, keys) => {
   const result = {}
@@ -191,6 +191,60 @@ const pick = (obj, keys) => {
     if (obj[k] !== undefined) result[k] = obj[k]
   }
   return result
+}
+
+/**
+ * Get the active cycle ID for a user.
+ * Auto-expires cycles older than 24h.
+ * Returns null if no active cycle.
+ */
+const getActiveCycleId = (userId) => {
+  const row = db.dayCycles.getActive.get(userId)
+  if (!row) return null
+
+  // Auto-expire if started_at is more than 24h ago
+  const startedMs = Date.parse(row.started_at)
+  if (Date.now() - startedMs > DAY_MS) {
+    db.dayCycles.end.run({
+      id: row.id,
+      user_id: userId,
+      ended_at: nowIso(),
+      auto_expired: 1
+    })
+    return null
+  }
+
+  return row.id
+}
+
+/**
+ * Get active cycle ID, or auto-create one if none exists.
+ * Used by POST routes for backwards compatibility (agents don't manage cycles).
+ */
+const getOrCreateCycleId = (userId) => {
+  const existing = getActiveCycleId(userId)
+  if (existing) return existing
+
+  const maxRow = db.dayCycles.maxNumber.get(userId)
+  const cycleNumber = (maxRow?.max_num || 0) + 1
+  const id = randomUUID()
+
+  db.dayCycles.insert.run({
+    id,
+    user_id: userId,
+    cycle_number: cycleNumber,
+    started_at: nowIso(),
+    ended_at: null,
+    auto_expired: 0
+  })
+
+  return id
+}
+
+/** Get the cycle_number for a given cycleId */
+const getCycleNumber = (userId, cycleId) => {
+  const row = db.dayCycles.getById.get(cycleId, userId)
+  return row?.cycle_number ?? null
 }
 
 // XP engine helpers
@@ -225,7 +279,7 @@ const parseJsonField = (val, fallback) => {
 const nightRoutineRowToApi = (row) => {
   if (!row) return null
   return {
-    date: row.date,
+    cycleId: row.cycle_id,
     startedAt: row.started_at,
     completedAt: row.completed_at,
     windDown: {
@@ -271,10 +325,93 @@ app.get('/health', (req, res) => {
   })
 })
 
+// ─── Day Cycle Management ───────────────────────────────────────────────────
+
+app.get('/day-cycle', (req, res) => {
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json({ active: false, cycle: null })
+  const row = db.dayCycles.getById.get(cycleId, req.userId)
+  res.json({
+    active: true,
+    cycle: {
+      id: row.id,
+      cycleNumber: row.cycle_number,
+      startedAt: row.started_at,
+      endedAt: row.ended_at
+    }
+  })
+})
+
+app.get('/day-cycles', (req, res) => {
+  const rows = db.dayCycles.getAll.all(req.userId)
+  res.json(rows.map((r) => ({
+    id: r.id,
+    cycleNumber: r.cycle_number,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    autoExpired: !!r.auto_expired
+  })))
+})
+
+app.post('/day-cycle/start', (req, res) => {
+  const uid = req.userId
+
+  // Check for existing active cycle
+  const existing = getActiveCycleId(uid)
+  if (existing) {
+    const row = db.dayCycles.getById.get(existing, uid)
+    return res.json({
+      ok: true,
+      message: 'Cycle already active',
+      cycle: {
+        id: row.id,
+        cycleNumber: row.cycle_number,
+        startedAt: row.started_at
+      }
+    })
+  }
+
+  const maxRow = db.dayCycles.maxNumber.get(uid)
+  const cycleNumber = (maxRow?.max_num || 0) + 1
+  const id = randomUUID()
+  const startedAt = req.body.startedAt || nowIso()
+
+  db.dayCycles.insert.run({
+    id,
+    user_id: uid,
+    cycle_number: cycleNumber,
+    started_at: startedAt,
+    ended_at: null,
+    auto_expired: 0
+  })
+
+  res.json({
+    ok: true,
+    cycle: { id, cycleNumber, startedAt }
+  })
+})
+
+app.post('/day-cycle/end', (req, res) => {
+  const uid = req.userId
+  const cycleId = getActiveCycleId(uid)
+  if (!cycleId) return res.json({ ok: true, message: 'No active cycle' })
+
+  db.dayCycles.end.run({
+    id: cycleId,
+    user_id: uid,
+    ended_at: nowIso(),
+    auto_expired: 0
+  })
+
+  res.json({ ok: true, cycleId })
+})
+
 // ─── Simple daily GET endpoints ──────────────────────────────────────────────
 
 app.get('/sleep-data', (req, res) => {
-  const row = db.sleepData.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('sleep-data'))
+  const row = db.sleepData.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('sleep-data'))
   const api = rowToApi(row)
   api.rawExtracted = parseJsonField(api.rawExtracted, {})
@@ -282,7 +419,9 @@ app.get('/sleep-data', (req, res) => {
 })
 
 app.get('/fitmind-data', (req, res) => {
-  const row = db.fitmindData.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('fitmind-data'))
+  const row = db.fitmindData.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('fitmind-data'))
   const api = rowToApi(row)
   api.workoutCompleted = !!api.workoutCompleted
@@ -290,7 +429,9 @@ app.get('/fitmind-data', (req, res) => {
 })
 
 app.get('/morning-state', (req, res) => {
-  const row = db.morningState.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('morning-state'))
+  const row = db.morningState.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('morning-state'))
   const api = rowToApi(row)
   api.insights = parseJsonField(api.insights, [])
@@ -299,7 +440,9 @@ app.get('/morning-state', (req, res) => {
 })
 
 app.get('/creative-state', (req, res) => {
-  const row = db.creativeState.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('creative-state'))
+  const row = db.creativeState.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('creative-state'))
   const api = rowToApi(row)
   api.activities = parseJsonField(api.activities, [])
@@ -309,21 +452,24 @@ app.get('/creative-state', (req, res) => {
 })
 
 app.get('/creative-block-log', (req, res) => {
-  const row = db.creativeBlockLog.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('creative-block-log'))
+  const row = db.creativeBlockLog.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('creative-block-log'))
   res.json(rowToApi(row))
 })
 
 app.get('/morning-block-log', (req, res) => {
-  const today = todayStr()
-  const log = db.morningBlockLog.get.get(req.userId, today)
-  const items = db.morningBlockItems.get.all(req.userId, today)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('morning-block-log'))
+  const log = db.morningBlockLog.get.get(req.userId, cycleId)
+  const items = db.morningBlockItems.get.all(req.userId, cycleId)
 
   if (!log && items.length === 0) return res.json(freshStub('morning-block-log'))
 
   const apiItems = items.map(rowToApi)
   res.json({
-    date: today,
+    cycleId,
     startedAt: log?.started_at || null,
     completedAt: log?.completed_at || null,
     items: apiItems,
@@ -333,23 +479,27 @@ app.get('/morning-block-log', (req, res) => {
 })
 
 app.get('/midday-checkin', (req, res) => {
-  const row = db.middayCheckin.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('midday-checkin'))
+  const row = db.middayCheckin.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('midday-checkin'))
   res.json(rowToApi(row))
 })
 
 app.get('/votes', (req, res) => {
-  const today = todayStr()
-  const rows = db.votes.getByDate.all(req.userId, today)
-  res.json({ date: today, votes: rows.map(rowToApi) })
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('votes'))
+  const rows = db.votes.getByCycle.all(req.userId, cycleId)
+  res.json({ cycleId, votes: rows.map(rowToApi) })
 })
 
 app.get('/work-sessions', (req, res) => {
-  const today = todayStr()
-  const rows = db.workSessions.getByDate.all(req.userId, today)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('work-sessions'))
+  const rows = db.workSessions.getByCycle.all(req.userId, cycleId)
   const sessions = rows.map(rowToApi)
   res.json({
-    date: today,
+    cycleId,
     sessions,
     totalSessions: 3,
     completedSessions: sessions.filter((s) => s.endedAt).length,
@@ -360,30 +510,34 @@ app.get('/work-sessions', (req, res) => {
 })
 
 app.get('/night-routine', (req, res) => {
-  const row = db.nightRoutine.get.get(req.userId, todayStr())
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('night-routine'))
+  const row = db.nightRoutine.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('night-routine'))
   res.json(nightRoutineRowToApi(row))
 })
 
 app.get('/nutrition', (req, res) => {
-  const today = todayStr()
-  const rows = db.nutrition.getByDate.all(req.userId, today)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('nutrition'))
+  const rows = db.nutrition.getByCycle.all(req.userId, cycleId)
   const meals = rows.map(rowToApi)
   const scored = meals.filter((m) => m.nutritionScore != null)
   const averageScore = scored.length > 0
     ? Math.round((scored.reduce((s, m) => s + m.nutritionScore, 0) / scored.length) * 10) / 10
     : null
-  res.json({ date: today, meals, averageScore, totalMeals: meals.length })
+  res.json({ cycleId, meals, averageScore, totalMeals: meals.length })
 })
 
 app.get('/dopamine', (req, res) => {
-  const today = todayStr()
-  const daily = db.dopamine.daily.get.get(req.userId, today)
-  const farming = db.dopamine.farming.getByDate.all(req.userId, today).map(rowToApi)
-  const overstim = db.dopamine.overstim.getByDate.all(req.userId, today).map(rowToApi)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('dopamine'))
+  const daily = db.dopamine.daily.get.get(req.userId, cycleId)
+  const farming = db.dopamine.farming.getByCycle.all(req.userId, cycleId).map(rowToApi)
+  const overstim = db.dopamine.overstim.getByCycle.all(req.userId, cycleId).map(rowToApi)
 
   res.json({
-    date: today,
+    cycleId,
     farming: {
       sessions: farming,
       totalPoints: farming.reduce((s, f) => s + (f.points || 0), 0),
@@ -401,26 +555,29 @@ app.get('/dopamine', (req, res) => {
 })
 
 app.get('/episode', (req, res) => {
-  const today = todayStr()
-  const row = db.episodes.get.get(req.userId, today)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('episode'))
+  const row = db.episodes.get.get(req.userId, cycleId)
   if (!row) return res.json(freshStub('episode'))
-  const plotPoints = db.plotPoints.getByDate.all(req.userId, today).map(rowToApi)
+  const plotPoints = db.plotPoints.getByCycle.all(req.userId, cycleId).map(rowToApi)
   const api = rowToApi(row)
   api.plotPoints = plotPoints
   res.json(api)
 })
 
 app.get('/key-decisions', (req, res) => {
-  const today = todayStr()
-  const rows = db.keyDecisions.getByDate.all(req.userId, today)
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('key-decisions'))
+  const rows = db.keyDecisions.getByCycle.all(req.userId, cycleId)
   const decisions = rows.map(rowToApi)
   const totalMultipliedWeight = decisions.reduce((s, d) => s + (d.multiplier || 0), 0)
-  res.json({ date: today, decisions, totalMultipliedWeight })
+  res.json({ cycleId, decisions, totalMultipliedWeight })
 })
 
 app.get('/vf-game', (req, res) => {
-  const today = todayStr()
-  const sessions = db.vfSessions.getByDate.all(req.userId, today).map((s) => {
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('vf-game'))
+  const sessions = db.vfSessions.getByCycle.all(req.userId, cycleId).map((s) => {
     const api = rowToApi(s)
     const affs = db.vfAffirmations.getBySession.all(s.id).map((a) => ({
       index: a.affirmation_index,
@@ -433,13 +590,14 @@ app.get('/vf-game', (req, res) => {
     api.keyDecisionsLinked = parseJsonField(api.keyDecisionsLinked, [])
     return api
   })
-  res.json({ date: today, sessions })
+  res.json({ cycleId, sessions })
 })
 
 app.get('/badge-daily', (req, res) => {
-  const today = todayStr()
-  const exercises = db.badgeExercises.getByDate.all(req.userId, today).map(rowToApi)
-  const missionsAttempted = db.badgeMissionAttempts.getByDate.all(req.userId, today).map((r) => ({
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json(freshStub('badge-daily'))
+  const exercises = db.badgeExercises.getByCycle.all(req.userId, cycleId).map(rowToApi)
+  const missionsAttempted = db.badgeMissionAttempts.getByCycle.all(req.userId, cycleId).map((r) => ({
     missionId: r.mission_id,
     badgeSlug: r.badge_slug,
     success: !!r.success,
@@ -453,7 +611,7 @@ app.get('/badge-daily', (req, res) => {
   for (const ma of missionsAttempted) {
     xpGained[ma.badgeSlug] = (xpGained[ma.badgeSlug] || 0) + (ma.xpGained || 0)
   }
-  res.json({ date: today, exercises, missionsAttempted, xpGained })
+  res.json({ cycleId, exercises, missionsAttempted, xpGained })
 })
 
 app.get('/events', (req, res) => {
@@ -469,32 +627,41 @@ app.get('/events', (req, res) => {
 // ─── GET /history ────────────────────────────────────────────────────────────
 
 app.get('/history', (req, res) => {
-  const rows = db.historyDates.all(req.userId, req.userId, req.userId, req.userId, req.userId)
-  res.json(rows.map((r) => r.date))
+  const rows = db.dayCycles.getAll.all(req.userId)
+  res.json(rows.map((r) => ({
+    id: r.id,
+    cycleNumber: r.cycle_number,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    autoExpired: !!r.auto_expired
+  })))
 })
 
-app.get('/history/:date', (req, res) => {
-  const { date } = req.params
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date' })
+app.get('/history/:cycleId', (req, res) => {
+  const { cycleId } = req.params
   const uid = req.userId
 
+  // Verify cycle exists
+  const cycle = db.dayCycles.getById.get(cycleId, uid)
+  if (!cycle) return res.status(404).json({ error: 'Cycle not found' })
+
   // Reconstruct the full day snapshot from DB
-  const sleepRow = db.sleepData.get.get(uid, date)
-  const morningStateRow = db.morningState.get.get(uid, date)
-  const creativeStateRow = db.creativeState.get.get(uid, date)
-  const creativeBlockRow = db.creativeBlockLog.get.get(uid, date)
-  const morningBlockRow = db.morningBlockLog.get.get(uid, date)
-  const morningBlockItems = db.morningBlockItems.get.all(uid, date)
-  const middayRow = db.middayCheckin.get.get(uid, date)
-  const fitmindRow = db.fitmindData.get.get(uid, date)
-  const workRows = db.workSessions.getByDate.all(uid, date)
-  const voteRows = db.votes.getByDate.all(uid, date)
-  const nightRow = db.nightRoutine.get.get(uid, date)
-  const nutritionRows = db.nutrition.getByDate.all(uid, date)
-  const episodeRow = db.episodes.get.get(uid, date)
-  const plotPointRows = db.plotPoints.getByDate.all(uid, date)
-  const kdRows = db.keyDecisions.getByDate.all(uid, date)
-  const vfRows = db.vfSessions.getByDate.all(uid, date)
+  const sleepRow = db.sleepData.get.get(uid, cycleId)
+  const morningStateRow = db.morningState.get.get(uid, cycleId)
+  const creativeStateRow = db.creativeState.get.get(uid, cycleId)
+  const creativeBlockRow = db.creativeBlockLog.get.get(uid, cycleId)
+  const morningBlockRow = db.morningBlockLog.get.get(uid, cycleId)
+  const morningBlockItems = db.morningBlockItems.get.all(uid, cycleId)
+  const middayRow = db.middayCheckin.get.get(uid, cycleId)
+  const fitmindRow = db.fitmindData.get.get(uid, cycleId)
+  const workRows = db.workSessions.getByCycle.all(uid, cycleId)
+  const voteRows = db.votes.getByCycle.all(uid, cycleId)
+  const nightRow = db.nightRoutine.get.get(uid, cycleId)
+  const nutritionRows = db.nutrition.getByCycle.all(uid, cycleId)
+  const episodeRow = db.episodes.get.get(uid, cycleId)
+  const plotPointRows = db.plotPoints.getByCycle.all(uid, cycleId)
+  const kdRows = db.keyDecisions.getByCycle.all(uid, cycleId)
+  const vfRows = db.vfSessions.getByCycle.all(uid, cycleId)
 
   // Sleep data
   const sleepApi = sleepRow ? rowToApi(sleepRow) : freshStub('sleep-data')
@@ -512,7 +679,7 @@ app.get('/history/:date', (req, res) => {
 
   // Morning block log
   const morningBlockApi = morningBlockRow ? {
-    date, startedAt: morningBlockRow.started_at, completedAt: morningBlockRow.completed_at,
+    cycleId, startedAt: morningBlockRow.started_at, completedAt: morningBlockRow.completed_at,
     items: morningBlockItems.map(rowToApi),
     completedCount: morningBlockItems.filter((i) => i.status === 'done').length,
     skippedCount: morningBlockItems.filter((i) => i.status === 'skipped').length
@@ -541,21 +708,28 @@ app.get('/history/:date', (req, res) => {
   const scored = meals.filter((m) => m.nutritionScore != null)
 
   // Dopamine
-  const daily = db.dopamine.daily.get.get(uid, date)
-  const farming = db.dopamine.farming.getByDate.all(uid, date).map(rowToApi)
-  const overstim = db.dopamine.overstim.getByDate.all(uid, date).map(rowToApi)
+  const daily = db.dopamine.daily.get.get(uid, cycleId)
+  const farming = db.dopamine.farming.getByCycle.all(uid, cycleId).map(rowToApi)
+  const overstim = db.dopamine.overstim.getByCycle.all(uid, cycleId).map(rowToApi)
 
   // Key decisions
   const decisions = kdRows.map(rowToApi)
 
   // Badge daily
-  const badgeExercises = db.badgeExercises.getByDate.all(uid, date).map(rowToApi)
-  const badgeMissionAttempts = db.badgeMissionAttempts.getByDate.all(uid, date).map((r) => ({
+  const badgeExercises = db.badgeExercises.getByCycle.all(uid, cycleId).map(rowToApi)
+  const badgeMissionAttempts = db.badgeMissionAttempts.getByCycle.all(uid, cycleId).map((r) => ({
     missionId: r.mission_id, badgeSlug: r.badge_slug,
     success: !!r.success, xpGained: r.xp_gained, timestamp: r.timestamp
   }))
 
   res.json({
+    cycle: {
+      id: cycle.id,
+      cycleNumber: cycle.cycle_number,
+      startedAt: cycle.started_at,
+      endedAt: cycle.ended_at,
+      autoExpired: !!cycle.auto_expired
+    },
     'sleep-data': sleepApi,
     'fitmind-data': fitmindRow ? (() => { const a = rowToApi(fitmindRow); a.workoutCompleted = !!a.workoutCompleted; return a })() : freshStub('fitmind-data'),
     'morning-state': morningStateApi,
@@ -564,20 +738,20 @@ app.get('/history/:date', (req, res) => {
     'morning-block-log': morningBlockApi,
     'midday-checkin': middayRow ? rowToApi(middayRow) : freshStub('midday-checkin'),
     'work-sessions': {
-      date, sessions, totalSessions: 3,
+      cycleId, sessions, totalSessions: 3,
       completedSessions: sessions.filter((s) => s.endedAt).length,
       lunchBreakLogged: false, lunchMeal: null, lunchNutritionScore: null
     },
-    'votes': { date, votes: voteRows.map(rowToApi) },
+    'votes': { cycleId, votes: voteRows.map(rowToApi) },
     'night-routine': nightRow ? nightRoutineRowToApi(nightRow) : freshStub('night-routine'),
     'nutrition': {
-      date, meals, totalMeals: meals.length,
+      cycleId, meals, totalMeals: meals.length,
       averageScore: scored.length > 0
         ? Math.round((scored.reduce((s, m) => s + m.nutritionScore, 0) / scored.length) * 10) / 10
         : null
     },
     'dopamine': {
-      date,
+      cycleId,
       farming: {
         sessions: farming,
         totalPoints: farming.reduce((s, f) => s + (f.points || 0), 0),
@@ -591,10 +765,10 @@ app.get('/history/:date', (req, res) => {
       netScore: daily?.net_score ?? 5
     },
     'episode': episodeApi,
-    'key-decisions': { date, decisions, totalMultipliedWeight: decisions.reduce((s, d) => s + (d.multiplier || 0), 0) },
-    'vf-game': { date, sessions: vfSessions },
+    'key-decisions': { cycleId, decisions, totalMultipliedWeight: decisions.reduce((s, d) => s + (d.multiplier || 0), 0) },
+    'vf-game': { cycleId, sessions: vfSessions },
     'badge-daily': {
-      date, exercises: badgeExercises, missionsAttempted: badgeMissionAttempts,
+      cycleId, exercises: badgeExercises, missionsAttempted: badgeMissionAttempts,
       xpGained: (() => {
         const xp = {}
         for (const ex of badgeExercises) xp[ex.badgeSlug] = (xp[ex.badgeSlug] || 0) + (ex.xpGained || 0)
@@ -605,37 +779,37 @@ app.get('/history/:date', (req, res) => {
   })
 })
 
-app.get('/history/:date/:file', (req, res) => {
-  const { date, file } = req.params
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date' })
-  // Redirect to the full history endpoint and extract the file
-  // For simplicity, just construct a mini response
+app.get('/history/:cycleId/:file', (req, res) => {
+  const { cycleId, file } = req.params
   const uid = req.userId
+
+  const cycle = db.dayCycles.getById.get(cycleId, uid)
+  if (!cycle) return res.status(404).json({ error: 'Cycle not found' })
 
   const handlers = {
     'sleep-data': () => {
-      const row = db.sleepData.get.get(uid, date)
+      const row = db.sleepData.get.get(uid, cycleId)
       if (!row) return freshStub('sleep-data')
       const api = rowToApi(row)
       api.rawExtracted = parseJsonField(api.rawExtracted, {})
       return api
     },
     'morning-state': () => {
-      const row = db.morningState.get.get(uid, date)
+      const row = db.morningState.get.get(uid, cycleId)
       if (!row) return freshStub('morning-state')
       const api = rowToApi(row)
       api.insights = parseJsonField(api.insights, [])
       return api
     },
     'votes': () => {
-      const rows = db.votes.getByDate.all(uid, date)
-      return { date, votes: rows.map(rowToApi) }
+      const rows = db.votes.getByCycle.all(uid, cycleId)
+      return { cycleId, votes: rows.map(rowToApi) }
     },
     'episode': () => {
-      const row = db.episodes.get.get(uid, date)
+      const row = db.episodes.get.get(uid, cycleId)
       if (!row) return freshStub('episode')
       const api = rowToApi(row)
-      api.plotPoints = db.plotPoints.getByDate.all(uid, date).map(rowToApi)
+      api.plotPoints = db.plotPoints.getByCycle.all(uid, cycleId).map(rowToApi)
       return api
     }
   }
@@ -653,18 +827,18 @@ app.get('/history/:date/:file', (req, res) => {
 app.post('/morning-block-log', (req, res) => {
   const { itemId, status, timestamp } = req.body
   if (!itemId || !status) return res.status(400).json({ error: 'itemId and status required' })
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   // Ensure parent log exists
   db.morningBlockLog.upsert.run({
-    user_id: uid, date: today,
+    user_id: uid, cycle_id: cycleId,
     started_at: nowIso(), completed_at: null
   })
 
   // Upsert item
   db.morningBlockItems.upsert.run({
-    id: itemId, user_id: uid, date: today,
+    id: itemId, user_id: uid, cycle_id: cycleId,
     status, timestamp: timestamp || nowIso()
   })
 
@@ -676,11 +850,11 @@ app.post('/morning-block-log', (req, res) => {
 const CREATIVE_BLOCK_FIELDS = ['status', 'startedAt', 'completedAt']
 
 app.post('/creative-block-log', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, CREATIVE_BLOCK_FIELDS)
 
   db.creativeBlockLog.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     started_at: allowed.startedAt || null,
     completed_at: allowed.completedAt || null,
     status: allowed.status || 'not_started'
@@ -693,11 +867,11 @@ app.post('/creative-block-log', (req, res) => {
 const SLEEP_DATA_FIELDS = ['source', 'hoursSlept', 'quality', 'sleepScore', 'wakeUpMood', 'notes', 'rawExtracted', 'createdAt']
 
 app.post('/sleep-data', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, SLEEP_DATA_FIELDS)
 
   db.sleepData.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     created_at: allowed.createdAt || nowIso(),
     source: allowed.source || null,
     hours_slept: allowed.hoursSlept ?? null,
@@ -715,11 +889,11 @@ app.post('/sleep-data', (req, res) => {
 const FITMIND_DATA_FIELDS = ['source', 'workoutCompleted', 'duration', 'type', 'score', 'notes', 'createdAt']
 
 app.post('/fitmind-data', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, FITMIND_DATA_FIELDS)
 
   db.fitmindData.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     created_at: allowed.createdAt || nowIso(),
     source: allowed.source || null,
     workout_completed: allowed.workoutCompleted != null ? (allowed.workoutCompleted ? 1 : 0) : null,
@@ -738,11 +912,11 @@ const MORNING_STATE_FIELDS = ['energyScore', 'mentalClarity', 'emotionalState', 
   'createdAt', 'updatedAt']
 
 app.post('/morning-state', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, MORNING_STATE_FIELDS)
 
   db.morningState.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     created_at: allowed.createdAt || nowIso(),
     updated_at: nowIso(),
     energy_score: allowed.energyScore ?? null,
@@ -765,11 +939,11 @@ const CREATIVE_STATE_FIELDS = ['activities', 'energyScore', 'creativeOutput', 'i
   'createdAt', 'updatedAt']
 
 app.post('/creative-state', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, CREATIVE_STATE_FIELDS)
 
   db.creativeState.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     created_at: allowed.createdAt || nowIso(),
     updated_at: nowIso(),
     activities: allowed.activities ? JSON.stringify(allowed.activities) : null,
@@ -790,10 +964,10 @@ app.post('/creative-state', (req, res) => {
 app.post('/work-sessions/start', (req, res) => {
   const { sessionId, focus, evaluationCriteria } = req.body
   if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
 
   db.workSessions.insert.run({
-    id: String(sessionId), user_id: req.userId, date: today,
+    id: String(sessionId), user_id: req.userId, cycle_id: cycleId,
     started_at: nowIso(), ended_at: null,
     duration_minutes: 90, focus: focus || '', evaluation_criteria: evaluationCriteria || '',
     outcomes: null, outcome_score: null, flow_score: null, composite_score: null,
@@ -812,8 +986,9 @@ app.post('/work-sessions/end', (req, res) => {
   const existing = db.workSessions.get.get(String(sessionId), req.userId)
   if (!existing) {
     // Create a session if it doesn't exist (backwards compat)
+    const cycleId = getOrCreateCycleId(req.userId)
     db.workSessions.insert.run({
-      id: String(sessionId), user_id: req.userId, date: todayStr(),
+      id: String(sessionId), user_id: req.userId, cycle_id: cycleId,
       started_at: null, ended_at: nowIso(),
       duration_minutes: 90, focus: '', evaluation_criteria: '',
       outcomes: outcomes || null, outcome_score: outcomeScore ?? null,
@@ -846,7 +1021,7 @@ app.post('/votes', (req, res) => {
   const { votes: incoming } = req.body
   if (!Array.isArray(incoming)) return res.status(400).json({ error: 'votes array required' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   let added = 0
   for (const v of incoming) {
     if (!VALID_CATEGORIES.has(v.category)) continue
@@ -856,7 +1031,7 @@ app.post('/votes', (req, res) => {
     db.votes.insert.run({
       id: randomUUID(),
       user_id: req.userId,
-      date: today,
+      cycle_id: cycleId,
       timestamp: v.timestamp || nowIso(),
       action: v.action,
       category: v.category,
@@ -902,11 +1077,11 @@ const NIGHT_ROUTINE_PHASES = {
 }
 
 app.post('/night-routine', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   // Read existing to merge
-  const existing = db.nightRoutine.get.get(uid, today)
+  const existing = db.nightRoutine.get.get(uid, cycleId)
 
   // Start from existing or defaults
   const current = existing ? {
@@ -1003,7 +1178,7 @@ app.post('/night-routine', (req, res) => {
   }
 
   db.nightRoutine.upsert.run({
-    user_id: uid, date: today, ...current
+    user_id: uid, cycle_id: cycleId, ...current
   })
 
   res.json({ ok: true })
@@ -1014,11 +1189,11 @@ app.post('/night-routine', (req, res) => {
 const MIDDAY_CHECKIN_FIELDS = ['energyScore', 'notes', 'rawNotes']
 
 app.post('/midday-checkin', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const allowed = pick(req.body, MIDDAY_CHECKIN_FIELDS)
 
   db.middayCheckin.upsert.run({
-    user_id: req.userId, date: today,
+    user_id: req.userId, cycle_id: cycleId,
     triggered_at: nowIso(),
     energy_score: allowed.energyScore ?? null,
     notes: allowed.notes || null,
@@ -1043,7 +1218,7 @@ app.get('/badge-progress', (req, res) => {
       exercisesCompleted: row.exercises_completed, missionsCompleted: row.missions_completed,
       missionsFailed: row.missions_failed, bossEncounters: row.boss_encounters,
       currentStreak: row.current_streak, longestStreak: row.longest_streak,
-      lastActivityDate: row.last_activity_date
+      lastCycleNumber: row.last_cycle_number
     }
   }
   // Ensure all badges exist
@@ -1052,7 +1227,7 @@ app.get('/badge-progress', (req, res) => {
       badges[b.slug] = {
         tier: 1, tierName: 'Initiate', xp: 0,
         exercisesCompleted: 0, missionsCompleted: 0, missionsFailed: 0,
-        bossEncounters: 0, currentStreak: 0, longestStreak: 0, lastActivityDate: null
+        bossEncounters: 0, currentStreak: 0, longestStreak: 0, lastCycleNumber: null
       }
     }
   }
@@ -1073,8 +1248,8 @@ app.get('/badge-missions', (req, res) => {
     title: m.title, status: m.status, assignedAt: m.assigned_at,
     completedAt: m.completed_at, xpAwarded: m.xp_awarded, notes: m.notes
   }))
-  const meta = db.meta.get.get(req.userId, 'missions_last_assigned')
-  res.json({ lastAssigned: meta?.value || null, active, completed })
+  const meta = db.meta.get.get(req.userId, 'missions_last_assigned_cycle')
+  res.json({ lastAssignedCycle: meta?.value || null, active, completed })
 })
 
 // ─── POST /badge-progress/exercise ───────────────────────────────────────────
@@ -1088,8 +1263,9 @@ app.post('/badge-progress/exercise', (req, res) => {
   const exercise = badge.exercises.find((e) => e.id === exerciseId)
   if (!exercise) return res.status(400).json({ error: 'Unknown exercise' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
+  const currentCycleNumber = getCycleNumber(uid, cycleId)
 
   // Get or init badge progress
   let progress = db.badgeProgress.get.get(uid, badgeSlug)
@@ -1099,17 +1275,13 @@ app.post('/badge-progress/exercise', (req, res) => {
       tier: 1, tier_name: 'Initiate', xp: 0,
       exercises_completed: 0, missions_completed: 0, missions_failed: 0,
       boss_encounters: 0, current_streak: 0, longest_streak: 0,
-      last_activity_date: null, last_updated: null
+      last_cycle_number: null, last_updated: null
     }
   }
 
-  // Update streak
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-  if (progress.last_activity_date !== today) {
-    if (progress.last_activity_date === yesterdayStr) {
+  // Update streak (cycle-based, not date-based)
+  if (progress.last_cycle_number !== currentCycleNumber) {
+    if (progress.last_cycle_number === currentCycleNumber - 1) {
       progress.current_streak += 1
     } else {
       progress.current_streak = 1
@@ -1117,7 +1289,7 @@ app.post('/badge-progress/exercise', (req, res) => {
     if (progress.current_streak > progress.longest_streak) {
       progress.longest_streak = progress.current_streak
     }
-    progress.last_activity_date = today
+    progress.last_cycle_number = currentCycleNumber
   }
 
   // Apply XP
@@ -1133,7 +1305,7 @@ app.post('/badge-progress/exercise', (req, res) => {
   db.transactions.exerciseBadge(
     { ...progress, user_id: uid, badge_slug: badgeSlug },
     {
-      user_id: uid, date: today, badge_slug: badgeSlug,
+      user_id: uid, cycle_id: cycleId, badge_slug: badgeSlug,
       exercise_id: exerciseId, timestamp: nowIso(), xp_gained: xpGained
     }
   )
@@ -1151,19 +1323,19 @@ app.post('/badge-progress/exercise', (req, res) => {
 
 app.post('/badge-missions/assign', (req, res) => {
   const { badgeSlugs } = req.body
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
-  // Don't re-assign if already assigned today
-  const lastAssigned = db.meta.get.get(uid, 'missions_last_assigned')
-  if (lastAssigned?.value === today) {
+  // Don't re-assign if already assigned this cycle
+  const lastAssigned = db.meta.get.get(uid, 'missions_last_assigned_cycle')
+  if (lastAssigned?.value === cycleId) {
     const active = db.badgeMissionsActive.getAll.all(uid).map((m) => ({
       missionId: m.mission_id, badgeSlug: m.badge_slug,
       title: m.title, description: m.description, successCriteria: m.success_criteria,
       rewardXp: m.reward_xp, failXp: m.fail_xp, minTier: m.min_tier,
       assignedAt: m.assigned_at, status: m.status
     }))
-    return res.json({ ok: true, message: 'Already assigned today', active })
+    return res.json({ ok: true, message: 'Already assigned this cycle', active })
   }
 
   const slugs = badgeSlugs || BADGES_DATA.badges.map((b) => b.slug)
@@ -1188,7 +1360,7 @@ app.post('/badge-missions/assign', (req, res) => {
     })
   }
 
-  db.transactions.assignMissions(uid, nowIso(), null, newMissions)
+  db.transactions.assignMissions(uid, nowIso(), cycleId, newMissions)
 
   const active = newMissions.map((m) => ({
     missionId: m.mission_id, badgeSlug: m.badge_slug,
@@ -1206,8 +1378,9 @@ app.post('/badge-missions/complete', (req, res) => {
   const { missionId, success, notes } = req.body
   if (!missionId || success === undefined) return res.status(400).json({ error: 'missionId and success required' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
+  const currentCycleNumber = getCycleNumber(uid, cycleId)
 
   const mission = db.badgeMissionsActive.get.get(uid, missionId, 'pending')
   if (!mission) return res.status(400).json({ error: 'Mission not found or already completed' })
@@ -1220,17 +1393,13 @@ app.post('/badge-missions/complete', (req, res) => {
       tier: 1, tier_name: 'Initiate', xp: 0,
       exercises_completed: 0, missions_completed: 0, missions_failed: 0,
       boss_encounters: 0, current_streak: 0, longest_streak: 0,
-      last_activity_date: null, last_updated: null
+      last_cycle_number: null, last_updated: null
     }
   }
 
-  // Update streak
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-  if (progress.last_activity_date !== today) {
-    if (progress.last_activity_date === yesterdayStr) {
+  // Update streak (cycle-based)
+  if (progress.last_cycle_number !== currentCycleNumber) {
+    if (progress.last_cycle_number === currentCycleNumber - 1) {
       progress.current_streak += 1
     } else {
       progress.current_streak = 1
@@ -1238,7 +1407,7 @@ app.post('/badge-missions/complete', (req, res) => {
     if (progress.current_streak > progress.longest_streak) {
       progress.longest_streak = progress.current_streak
     }
-    progress.last_activity_date = today
+    progress.last_cycle_number = currentCycleNumber
   }
 
   // Apply XP
@@ -1273,7 +1442,7 @@ app.post('/badge-missions/complete', (req, res) => {
     completedMission,
     { ...progress, user_id: uid, badge_slug: mission.badge_slug },
     {
-      user_id: uid, date: today, mission_id: missionId,
+      user_id: uid, cycle_id: cycleId, mission_id: missionId,
       badge_slug: mission.badge_slug, success: success ? 1 : 0,
       xp_gained: xpGained, timestamp: nowIso()
     }
@@ -1300,28 +1469,28 @@ app.post('/key-decisions', (req, res) => {
   if (!description || !type) return res.status(400).json({ error: 'description and type required' })
   if (!KEY_DECISION_TYPES.has(type)) return res.status(400).json({ error: `type must be one of: ${[...KEY_DECISION_TYPES].join(', ')}` })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
   const mult = multiplier || (type === 'face-boss' ? 5 : type === 'resist' ? 3 : 2)
 
   const decision = {
-    id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     description, type, multiplier: mult,
     affirmation_index: affirmationIndex ?? null, notes: notes || ''
   }
 
   const vote = {
-    id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     action: description, category: 'mental-power', polarity: 'positive',
     source: 'key-decision', weight: mult
   }
 
   // Auto plot-point for active episode
-  const episode = db.episodes.get.get(uid, today)
+  const episode = db.episodes.get.get(uid, cycleId)
   let plotPoint = null
   if (episode && episode.number) {
     plotPoint = {
-      id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+      id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
       description, type: 'key-decision'
     }
   }
@@ -1329,7 +1498,7 @@ app.post('/key-decisions', (req, res) => {
   db.transactions.logKeyDecision(uid, decision, vote, plotPoint)
 
   // Re-read for response
-  const allDecisions = db.keyDecisions.getByDate.all(uid, today)
+  const allDecisions = db.keyDecisions.getByCycle.all(uid, cycleId)
   const totalMultipliedWeight = allDecisions.reduce((s, d) => s + d.multiplier, 0)
 
   res.json({
@@ -1345,13 +1514,13 @@ app.post('/key-decisions', (req, res) => {
 const VF_GAME_FIELDS = ['presenceScore', 'affirmations', 'bossEncountered', 'keyDecisionsLinked', 'closing', 'notes']
 
 app.post('/vf-game', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
   const allowed = pick(req.body, VF_GAME_FIELDS)
 
   const sessionId = randomUUID()
   const session = {
-    id: sessionId, user_id: uid, date: today, timestamp: nowIso(),
+    id: sessionId, user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     presence_score: allowed.presenceScore ?? null,
     boss_encountered: allowed.bossEncountered ?? null,
     key_decisions_linked: allowed.keyDecisionsLinked ? JSON.stringify(allowed.keyDecisionsLinked) : null,
@@ -1378,13 +1547,13 @@ app.post('/vf-game', (req, res) => {
         const affDef = AFFIRMATIONS_DATA.affirmations.find((a) => a.index === aff.index)
         if (aff.convictionScore >= 8) {
           votesToAdd.push({
-            id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+            id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
             action: `High conviction: ${affDef?.text?.slice(0, 60) || 'affirmation ' + aff.index}`,
             category: 'mental-power', polarity: 'positive', source: 'vf-game', weight: 2
           })
         } else if (aff.convictionScore <= 3) {
           votesToAdd.push({
-            id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+            id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
             action: `Low conviction: ${affDef?.text?.slice(0, 60) || 'affirmation ' + aff.index}`,
             category: 'mental-power', polarity: 'negative', source: 'vf-game', weight: 1
           })
@@ -1394,7 +1563,7 @@ app.post('/vf-game', (req, res) => {
       if (aff.resistanceScore !== undefined && aff.resistanceScore >= 8) {
         const affDef = AFFIRMATIONS_DATA.affirmations.find((a) => a.index === aff.index)
         votesToAdd.push({
-          id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+          id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
           action: `High resistance: ${affDef?.text?.slice(0, 60) || 'affirmation ' + aff.index}`,
           category: 'mental-power', polarity: 'negative', source: 'vf-game', weight: 1
         })
@@ -1404,19 +1573,20 @@ app.post('/vf-game', (req, res) => {
 
   db.transactions.logVfSession(uid, session, affirmationsToInsert, votesToAdd)
 
-  const sessionCount = db.vfSessions.getByDate.all(uid, today).length
+  const sessionCount = db.vfSessions.getByCycle.all(uid, cycleId).length
   res.json({ ok: true, sessionId, sessionCount })
 })
 
 // ─── GET /vf-score ───────────────────────────────────────────────────────────
 
 app.get('/vf-score', (req, res) => {
-  const today = todayStr()
+  const cycleId = getActiveCycleId(req.userId)
+  if (!cycleId) return res.json({ cycleId: null, score: null, components: null, message: 'No active cycle' })
   const uid = req.userId
 
-  const sessions = db.vfSessions.getByDate.all(uid, today)
+  const sessions = db.vfSessions.getByCycle.all(uid, cycleId)
   if (sessions.length === 0) {
-    return res.json({ date: today, score: null, components: null, message: 'No VF sessions today' })
+    return res.json({ cycleId, score: null, components: null, message: 'No VF sessions this cycle' })
   }
 
   const latest = sessions[sessions.length - 1]
@@ -1429,12 +1599,12 @@ app.get('/vf-score', (req, res) => {
   const resAvg = resScores.length > 0 ? resScores.reduce((s, v) => s + v, 0) / resScores.length : 0
   const resInverted = 10 - resAvg
 
-  const kdRows = db.keyDecisions.getByDate.all(uid, today)
+  const kdRows = db.keyDecisions.getByCycle.all(uid, cycleId)
   const kdWeight = kdRows.reduce((s, d) => s + d.multiplier, 0)
   const kdScore = Math.min(10, kdWeight / 3)
 
-  const bossToday = db.bossEncounters.getTodayFaced.all(uid, today)
-  const bossScore = Math.min(10, bossToday.length * 3.33)
+  const bossRows = db.bossEncounters.getByCycleFaced.all(uid, cycleId)
+  const bossScore = Math.min(10, bossRows.length * 3.33)
 
   const presence = latest.presence_score ?? 0
 
@@ -1442,7 +1612,7 @@ app.get('/vf-score', (req, res) => {
   const score = Math.round(composed * 10) / 10
 
   res.json({
-    date: today, score,
+    cycleId, score,
     components: {
       conviction: { avg: Math.round(convAvg * 10) / 10, weight: '25%' },
       resistance: { avg: Math.round(resAvg * 10) / 10, inverted: Math.round(resInverted * 10) / 10, weight: '25%' },
@@ -1459,7 +1629,7 @@ app.get('/vf-score', (req, res) => {
 
 app.get('/vf-chapters', (req, res) => {
   const chapters = db.vfChapters.getAll.all(req.userId).map((r) => ({
-    id: r.id, chapter: r.chapter, date: r.date, timestamp: r.timestamp,
+    id: r.id, chapter: r.chapter, cycleId: r.cycle_id, timestamp: r.timestamp,
     title: r.title, narrative: r.narrative, vfScore: r.vf_score,
     keyMoments: parseJsonField(r.key_moments, []),
     bossesNamed: parseJsonField(r.bosses_named, []),
@@ -1476,12 +1646,13 @@ app.post('/vf-chapters', (req, res) => {
   const { title, narrative, vfScore, keyMoments, bossesNamed, affirmationShifts, mood } = req.body
   if (!narrative) return res.status(400).json({ error: 'narrative required' })
 
+  const cycleId = getOrCreateCycleId(req.userId)
   const maxRow = db.vfChapters.maxNumber.get(req.userId)
   const chapterNumber = (maxRow?.max_ch || 0) + 1
 
   const entry = {
-    id: randomUUID(), user_id: req.userId, chapter: chapterNumber,
-    date: todayStr(), timestamp: nowIso(),
+    id: randomUUID(), user_id: req.userId, cycle_id: cycleId,
+    chapter: chapterNumber, timestamp: nowIso(),
     title: title || `Chapter ${chapterNumber}`,
     narrative, vf_score: vfScore ?? null,
     key_moments: keyMoments ? JSON.stringify(keyMoments) : null,
@@ -1501,8 +1672,9 @@ app.post('/boss-encounters', (req, res) => {
   if (!type || !content) return res.status(400).json({ error: 'type and content required' })
   if (!['text', 'image', 'conversation'].includes(type)) return res.status(400).json({ error: 'type must be text, image, or conversation' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
+  const currentCycleNumber = getCycleNumber(uid, cycleId)
   let xpGained = 0
 
   let badgeUpdate = null
@@ -1516,19 +1688,16 @@ app.post('/boss-encounters', (req, res) => {
           tier: 1, tier_name: 'Initiate', xp: 0,
           exercises_completed: 0, missions_completed: 0, missions_failed: 0,
           boss_encounters: 0, current_streak: 0, longest_streak: 0,
-          last_activity_date: null, last_updated: null
+          last_cycle_number: null, last_updated: null
         }
       }
 
-      // Update streak
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const ys = yesterday.toISOString().slice(0, 10)
-      if (progress.last_activity_date !== today) {
-        if (progress.last_activity_date === ys) progress.current_streak += 1
+      // Update streak (cycle-based)
+      if (progress.last_cycle_number !== currentCycleNumber) {
+        if (progress.last_cycle_number === currentCycleNumber - 1) progress.current_streak += 1
         else progress.current_streak = 1
         if (progress.current_streak > progress.longest_streak) progress.longest_streak = progress.current_streak
-        progress.last_activity_date = today
+        progress.last_cycle_number = currentCycleNumber
       }
 
       const mult = getStreakMultiplier(progress.current_streak)
@@ -1545,7 +1714,7 @@ app.post('/boss-encounters', (req, res) => {
   }
 
   const encounter = {
-    id: randomUUID(), user_id: uid, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     badge_slug: badgeSlug || null, affirmation_index: affirmationIndex ?? null,
     type, title: title || '', content, faced: faced ? 1 : 0,
     xp_awarded: xpGained, source: req.body.source || 'user'
@@ -1557,21 +1726,21 @@ app.post('/boss-encounters', (req, res) => {
 
   if (faced) {
     keyDecision = {
-      id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+      id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
       description: `Faced boss: ${title || content.slice(0, 60)}`,
       type: 'face-boss', multiplier: 5,
       affirmation_index: affirmationIndex ?? null, notes: content
     }
     vote = {
-      id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+      id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
       action: keyDecision.description,
       category: 'mental-power', polarity: 'positive',
       source: 'key-decision', weight: 5
     }
-    const episode = db.episodes.get.get(uid, today)
+    const episode = db.episodes.get.get(uid, cycleId)
     if (episode && episode.number) {
       plotPoint = {
-        id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+        id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
         description: `Boss faced: ${title || content.slice(0, 60)}`,
         type: 'boss-encounter'
       }
@@ -1613,11 +1782,11 @@ app.post('/nutrition', (req, res) => {
   const { meal, time, nutritionScore, notes } = req.body
   if (!meal) return res.status(400).json({ error: 'meal required' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   const entry = {
-    id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     meal, time: MEAL_TIMES.has(time) ? time : 'snack',
     nutrition_score: nutritionScore ?? null, notes: notes || ''
   }
@@ -1625,7 +1794,7 @@ app.post('/nutrition', (req, res) => {
   let vote = null
   if (nutritionScore != null) {
     vote = {
-      id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+      id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
       action: `Meal: ${meal}${nutritionScore >= 7 ? ' (clean)' : nutritionScore <= 3 ? ' (junk)' : ''}`,
       category: 'nutrition', polarity: nutritionScore >= 5 ? 'positive' : 'negative',
       source: 'nutrition-log', weight: 1
@@ -1635,7 +1804,7 @@ app.post('/nutrition', (req, res) => {
   db.transactions.logNutrition(entry, vote)
 
   // Recompute averages
-  const allMeals = db.nutrition.getByDate.all(uid, today)
+  const allMeals = db.nutrition.getByCycle.all(uid, cycleId)
   const scored = allMeals.filter((m) => m.nutrition_score != null)
   const averageScore = scored.length > 0
     ? Math.round((scored.reduce((s, m) => s + m.nutrition_score, 0) / scored.length) * 10) / 10
@@ -1675,11 +1844,11 @@ const calcFarmingPoints = (durationMinutes) => {
 }
 
 app.post('/dopamine/farm-start', (req, res) => {
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const sessionId = randomUUID()
 
   db.dopamine.farming.insert.run({
-    id: sessionId, user_id: req.userId, date: today,
+    id: sessionId, user_id: req.userId, cycle_id: cycleId,
     started_at: nowIso(), ended_at: null,
     duration_minutes: 0, points: 0
   })
@@ -1691,11 +1860,11 @@ app.post('/dopamine/farm-end', (req, res) => {
   const { sessionId } = req.body
   if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
 
-  const today = todayStr()
   const uid = req.userId
   const session = db.dopamine.farming.get.get(sessionId, uid)
   if (!session || session.ended_at) return res.status(400).json({ error: 'Active farming session not found' })
 
+  const cycleId = session.cycle_id
   const endedAt = nowIso()
   const startMs = new Date(session.started_at).getTime()
   const endMs = new Date(endedAt).getTime()
@@ -1703,19 +1872,19 @@ app.post('/dopamine/farm-end', (req, res) => {
   const points = calcFarmingPoints(durationMinutes)
 
   // Get all farming sessions for recalc
-  const allFarming = db.dopamine.farming.getByDate.all(uid, today)
+  const allFarming = db.dopamine.farming.getByCycle.all(uid, cycleId)
   // Simulate the updated session
   const updatedFarming = allFarming.map((f) => f.id === sessionId ? { ...f, points, duration_minutes: durationMinutes } : f)
 
-  const overstimCount = db.dopamine.overstim.getByDate.all(uid, today).length
-  const daily = db.dopamine.daily.get.get(uid, today)
+  const overstimCount = db.dopamine.overstim.getByCycle.all(uid, cycleId).length
+  const daily = db.dopamine.daily.get.get(uid, cycleId)
   const screenMinutes = daily?.screen_minutes ?? null
   const netScore = calcDopamineNet(updatedFarming, overstimCount, screenMinutes)
 
   let vote = null
   if (points > 0) {
     vote = {
-      id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+      id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
       action: `Dopamine farming: ${durationMinutes}min unstimulated`,
       category: 'mental-power', polarity: 'positive',
       source: 'dopamine-farming', weight: Math.max(1, Math.round(points / 5))
@@ -1724,7 +1893,7 @@ app.post('/dopamine/farm-end', (req, res) => {
 
   db.transactions.logDopamineFarmEnd(
     { id: sessionId, user_id: uid, ended_at: endedAt, duration_minutes: durationMinutes, points },
-    { user_id: uid, date: today, screen_minutes: screenMinutes, screen_pickups: daily?.screen_pickups ?? null, screen_top_apps: daily?.screen_top_apps ?? null, screen_captured_at: daily?.screen_captured_at ?? null, net_score: netScore },
+    { user_id: uid, cycle_id: cycleId, screen_minutes: screenMinutes, screen_pickups: daily?.screen_pickups ?? null, screen_top_apps: daily?.screen_top_apps ?? null, screen_captured_at: daily?.screen_captured_at ?? null, net_score: netScore },
     vote
   )
 
@@ -1740,23 +1909,23 @@ app.post('/dopamine/overstimulation', (req, res) => {
   if (!type) return res.status(400).json({ error: 'type required' })
   if (!DOPAMINE_OVERSTIM_TYPES.has(type)) return res.status(400).json({ error: `type must be one of: ${[...DOPAMINE_OVERSTIM_TYPES].join(', ')}` })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   const overstim = {
-    id: randomUUID(), user_id: uid, date: today,
+    id: randomUUID(), user_id: uid, cycle_id: cycleId,
     timestamp: nowIso(), type, notes: notes || ''
   }
 
   // Recalc net score
-  const farming = db.dopamine.farming.getByDate.all(uid, today)
-  const existingOverstimCount = db.dopamine.overstim.getByDate.all(uid, today).length + 1
-  const daily = db.dopamine.daily.get.get(uid, today)
+  const farming = db.dopamine.farming.getByCycle.all(uid, cycleId)
+  const existingOverstimCount = db.dopamine.overstim.getByCycle.all(uid, cycleId).length + 1
+  const daily = db.dopamine.daily.get.get(uid, cycleId)
   const screenMinutes = daily?.screen_minutes ?? null
   const netScore = calcDopamineNet(farming, existingOverstimCount, screenMinutes)
 
   const vote = {
-    id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     action: `Overstimulation: ${type}${notes ? ' — ' + notes : ''}`,
     category: 'mental-power', polarity: 'negative',
     source: 'dopamine-tracking', weight: 1
@@ -1764,7 +1933,7 @@ app.post('/dopamine/overstimulation', (req, res) => {
 
   db.transactions.logDopamineOverstim(
     overstim,
-    { user_id: uid, date: today, screen_minutes: screenMinutes, screen_pickups: daily?.screen_pickups ?? null, screen_top_apps: daily?.screen_top_apps ?? null, screen_captured_at: daily?.screen_captured_at ?? null, net_score: netScore },
+    { user_id: uid, cycle_id: cycleId, screen_minutes: screenMinutes, screen_pickups: daily?.screen_pickups ?? null, screen_top_apps: daily?.screen_top_apps ?? null, screen_captured_at: daily?.screen_captured_at ?? null, net_score: netScore },
     vote
   )
 
@@ -1775,16 +1944,16 @@ app.post('/dopamine/screen-time', (req, res) => {
   const { totalMinutes, pickups, topApps } = req.body
   if (totalMinutes === undefined) return res.status(400).json({ error: 'totalMinutes required' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   // Recalc net score
-  const farming = db.dopamine.farming.getByDate.all(uid, today)
-  const overstimCount = db.dopamine.overstim.getByDate.all(uid, today).length
+  const farming = db.dopamine.farming.getByCycle.all(uid, cycleId)
+  const overstimCount = db.dopamine.overstim.getByCycle.all(uid, cycleId).length
   const netScore = calcDopamineNet(farming, overstimCount, totalMinutes)
 
   db.dopamine.daily.upsert.run({
-    user_id: uid, date: today,
+    user_id: uid, cycle_id: cycleId,
     screen_minutes: totalMinutes,
     screen_pickups: pickups ?? null,
     screen_top_apps: topApps ? JSON.stringify(topApps) : null,
@@ -1799,11 +1968,11 @@ app.post('/dopamine/screen-time', (req, res) => {
 
 app.post('/episode', (req, res) => {
   const { title, previouslyOn, todaysArc, rating, status } = req.body
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   // Get existing or determine next number
-  const existing = db.episodes.get.get(uid, today)
+  const existing = db.episodes.get.get(uid, cycleId)
   let number = existing?.number
   if (!number) {
     const maxRow = db.episodes.maxNumber.get(uid)
@@ -1811,7 +1980,7 @@ app.post('/episode', (req, res) => {
   }
 
   db.episodes.upsert.run({
-    user_id: uid, date: today, number,
+    user_id: uid, cycle_id: cycleId, number,
     title: title !== undefined ? title : (existing?.title || null),
     previously_on: previouslyOn !== undefined ? previouslyOn : (existing?.previously_on || null),
     todays_arc: todaysArc !== undefined ? todaysArc : (existing?.todays_arc || null),
@@ -1820,8 +1989,8 @@ app.post('/episode', (req, res) => {
   })
 
   // Read back for response
-  const row = db.episodes.get.get(uid, today)
-  const plotPoints = db.plotPoints.getByDate.all(uid, today).map(rowToApi)
+  const row = db.episodes.get.get(uid, cycleId)
+  const plotPoints = db.plotPoints.getByCycle.all(uid, cycleId).map(rowToApi)
   const api = rowToApi(row)
   api.plotPoints = plotPoints
   res.json({ ok: true, episode: api })
@@ -1831,27 +2000,27 @@ app.post('/episode/plot-point', (req, res) => {
   const { description, type } = req.body
   if (!description) return res.status(400).json({ error: 'description required' })
 
-  const today = todayStr()
+  const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
   // Ensure episode exists
-  const existing = db.episodes.get.get(uid, today)
+  const existing = db.episodes.get.get(uid, cycleId)
   if (!existing) {
     const maxRow = db.episodes.maxNumber.get(uid)
     const number = (maxRow?.max_num || 0) + 1
     db.episodes.upsert.run({
-      user_id: uid, date: today, number,
+      user_id: uid, cycle_id: cycleId, number,
       title: null, previously_on: null, todays_arc: null,
       rating: null, status: 'open'
     })
   }
 
   db.plotPoints.insert.run({
-    id: randomUUID(), user_id: uid, date: today, timestamp: nowIso(),
+    id: randomUUID(), user_id: uid, cycle_id: cycleId, timestamp: nowIso(),
     description, type: type || 'moment'
   })
 
-  const plotPoints = db.plotPoints.getByDate.all(uid, today)
+  const plotPoints = db.plotPoints.getByCycle.all(uid, cycleId)
   res.json({ ok: true, plotPoints: plotPoints.length })
 })
 
@@ -1860,7 +2029,7 @@ app.get('/episodes', (req, res) => {
   const rows = db.episodes.getAll.all(req.userId)
   const episodes = rows.map((r) => {
     const api = rowToApi(r)
-    api.plotPoints = db.plotPoints.getByDate.all(req.userId, r.date).map(rowToApi)
+    api.plotPoints = db.plotPoints.getByCycle.all(req.userId, r.cycle_id).map(rowToApi)
     return api
   })
 

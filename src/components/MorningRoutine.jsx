@@ -84,14 +84,13 @@ export default function MorningRoutine({
   }, [mode])
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
     fetch('/api/morning-state')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.date === today && d?.energyScore != null) setMorningCheckinDone(true) })
+      .then(d => { if (d?.cycleId && d?.energyScore != null) setMorningCheckinDone(true) })
       .catch(() => {})
     fetch('/api/creative-state')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.date === today && d?.energyScore != null) setCreativeCheckinDone(true) })
+      .then(d => { if (d?.cycleId && d?.energyScore != null) setCreativeCheckinDone(true) })
       .catch(() => {})
   }, [])
 

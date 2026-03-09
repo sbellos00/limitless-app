@@ -1,4 +1,6 @@
-# SQLite Migration Guide
+> **OUTDATED** — This was the original migration plan from JSON files to SQLite with date-keyed tables. The system now uses cycle-based keys (`cycle_id`). See `schema.sql` for the current schema.
+
+# SQLite Migration Guide (ARCHIVED)
 
 Migrate from file-based JSON storage to SQLite using `better-sqlite3`.
 

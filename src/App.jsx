@@ -12,6 +12,7 @@ import DopamineTracker from './components/DopamineTracker.jsx'
 import EpisodeBar from './components/EpisodeBar.jsx'
 import morningRoutine from './data/morningRoutine.js'
 import DevPanel from './components/DevPanel.jsx'
+import VFAffirmations from './components/VFAffirmations.jsx'
 import DayCountdownBar from './components/DayCountdownBar.jsx'
 import EpisodeOpen from './components/EpisodeOpen.jsx'
 import EpisodeClose from './components/EpisodeClose.jsx'
@@ -22,8 +23,8 @@ const STORAGE_KEYS = {
   creativeBlockStart: 'limitless_creative_block_start',
   workSessions: 'limitless_work_sessions',
   nightRoutine: 'limitless_night_routine',
-  lastReset: 'limitless_last_reset',
-  dayStart: 'limitless_day_start'
+  cycleId: 'limitless_cycle_id',
+  cycleStart: 'limitless_cycle_start'
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -51,8 +52,9 @@ export default function App() {
     const stored = localStorage.getItem(STORAGE_KEYS.creativeBlockStart)
     return stored ? Number(stored) : null
   })
+  const [cycleId, setCycleId] = useState(() => localStorage.getItem(STORAGE_KEYS.cycleId) || null)
   const [dayStartTimestamp, setDayStartTimestamp] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.dayStart)
+    const stored = localStorage.getItem(STORAGE_KEYS.cycleStart)
     return stored ? Number(stored) : null
   })
   const [now, setNow] = useState(Date.now())
@@ -65,66 +67,47 @@ export default function App() {
   const dayRemainingMs = dayStartTimestamp ? DAY_MS - (now - dayStartTimestamp) : 0
   const dayActive = dayStartTimestamp != null && dayRemainingMs > 0
 
-  // Daily reset + reconcile with server on mount
+  // Reconcile with server on mount — check for active cycle
   useEffect(() => {
-    const now = new Date()
-    const hour = now.getHours()
-    const today = now.toISOString().slice(0, 10)
-    const lastReset = localStorage.getItem(STORAGE_KEYS.lastReset)
-
-    if (hour >= 3 && lastReset !== today) {
-      localStorage.setItem(STORAGE_KEYS.lastReset, today)
-      localStorage.removeItem(STORAGE_KEYS.statuses)
-      localStorage.removeItem(STORAGE_KEYS.currentView)
-      localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
-      localStorage.removeItem(STORAGE_KEYS.workSessions)
-      localStorage.removeItem(STORAGE_KEYS.nightRoutine)
-      setStatuses({})
-      setCurrentView('morning-routine')
-      setCreativeBlockStartTime(null)
-      return
-    }
-
-    if (!lastReset) {
-      localStorage.setItem(STORAGE_KEYS.lastReset, today)
-    }
-
-    // Reconcile: restore mid-morning progress if app was closed and reopened
-    // Skip if all items are already logged — morning was completed, don't re-trigger completion screen
-    fetch('/api/morning-block-log')
+    fetch('/api/day-cycle')
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (!data || data.date !== today || !data.items?.length) return
-        if (data.items.length >= flatItems.length) return // morning fully logged, skip
-        const serverStatuses = {}
-        for (const item of data.items) {
-          serverStatuses[item.id] = item.status
+        if (!data) return
+        if (data.active && data.cycle) {
+          const stamp = Date.parse(data.cycle.startedAt)
+          if (!Number.isNaN(stamp)) {
+            setCycleId(data.cycle.id)
+            setDayStartTimestamp(stamp)
+            localStorage.setItem(STORAGE_KEYS.cycleId, data.cycle.id)
+            localStorage.setItem(STORAGE_KEYS.cycleStart, String(stamp))
+          }
+        } else if (!data.active && cycleId) {
+          // Server says no active cycle but we think one exists — clear local state
+          clearDayState()
         }
-        setStatuses((prev) => {
-          const merged = { ...serverStatuses, ...prev }
-          localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(merged))
-          return merged
-        })
       })
       .catch(() => {})
-  }, [])
 
-  useEffect(() => {
-    if (dayEndedManually.current) return
-    const today = new Date().toISOString().slice(0, 10)
-    fetch('/api/morning-state')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (dayEndedManually.current) return
-        if (!data || data.date !== today) return
-        if (dayStartTimestamp) return
-        const stamp = data.createdAt ? Date.parse(data.createdAt) : null
-        if (!stamp || Number.isNaN(stamp)) return
-        localStorage.setItem(STORAGE_KEYS.dayStart, String(stamp))
-        setDayStartTimestamp(stamp)
-      })
-      .catch(() => {})
-  }, [dayStartTimestamp])
+    // Reconcile morning progress
+    if (cycleId) {
+      fetch('/api/morning-block-log')
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (!data || !data.cycleId || !data.items?.length) return
+          if (data.items.length >= flatItems.length) return // morning fully logged, skip
+          const serverStatuses = {}
+          for (const item of data.items) {
+            serverStatuses[item.id] = item.status
+          }
+          setStatuses((prev) => {
+            const merged = { ...serverStatuses, ...prev }
+            localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(merged))
+            return merged
+          })
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(statuses))
@@ -144,11 +127,19 @@ export default function App() {
 
   useEffect(() => {
     if (dayStartTimestamp) {
-      localStorage.setItem(STORAGE_KEYS.dayStart, String(dayStartTimestamp))
+      localStorage.setItem(STORAGE_KEYS.cycleStart, String(dayStartTimestamp))
     } else {
-      localStorage.removeItem(STORAGE_KEYS.dayStart)
+      localStorage.removeItem(STORAGE_KEYS.cycleStart)
     }
   }, [dayStartTimestamp])
+
+  useEffect(() => {
+    if (cycleId) {
+      localStorage.setItem(STORAGE_KEYS.cycleId, cycleId)
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.cycleId)
+    }
+  }, [cycleId])
 
   useEffect(() => {
     if (!dayActive) return
@@ -161,12 +152,11 @@ export default function App() {
     fetch('/api/episode').then(r => r.ok ? r.json() : null).then(d => { if (d?.number) setEpisode(d) }).catch(() => {})
   }, [])
 
+  // Auto-expire after 24h
   useEffect(() => {
     if (dayStartTimestamp == null) return
     if (dayRemainingMs <= 0) {
-      // Auto-expire after 24h
-      setDayStartTimestamp(null)
-      localStorage.removeItem(STORAGE_KEYS.dayStart)
+      clearDayState()
     }
   }, [dayRemainingMs, dayStartTimestamp])
 
@@ -176,6 +166,25 @@ export default function App() {
       setCurrentView('completed')
     }
   }, [flatItems, statuses, currentView])
+
+  const clearDayState = () => {
+    setCycleId(null)
+    setDayStartTimestamp(null)
+    localStorage.removeItem(STORAGE_KEYS.cycleId)
+    localStorage.removeItem(STORAGE_KEYS.cycleStart)
+    localStorage.removeItem(STORAGE_KEYS.statuses)
+    localStorage.removeItem(STORAGE_KEYS.currentView)
+    localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
+    localStorage.removeItem(STORAGE_KEYS.workSessions)
+    localStorage.removeItem(STORAGE_KEYS.nightRoutine)
+    localStorage.removeItem('limitless_vf_completed_cycle')
+    localStorage.removeItem('limitless_vf_skipped')
+    localStorage.removeItem('limitless_vf_penalty_cycle')
+    localStorage.removeItem('limitless_vf_read_cycle')
+    setStatuses({})
+    setCurrentView('morning-routine')
+    setCreativeBlockStartTime(null)
+  }
 
   const logInteraction = async (itemId, status) => {
     try {
@@ -209,40 +218,41 @@ export default function App() {
   const handleStartDay = async () => {
     if (dayActive) return
     dayEndedManually.current = false
-    const stamp = Date.now()
-    setDayStartTimestamp(stamp)
-    localStorage.setItem(STORAGE_KEYS.dayStart, String(stamp))
+
     try {
-      await fetch('/api/morning-state', {
+      const resp = await fetch('/api/day-cycle/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          createdAt: new Date(stamp).toISOString(),
-          updatedAt: new Date(stamp).toISOString()
-        })
+        body: JSON.stringify({})
       })
+      const data = await resp.json()
+      if (data.ok && data.cycle) {
+        const stamp = Date.parse(data.cycle.startedAt)
+        setCycleId(data.cycle.id)
+        setDayStartTimestamp(stamp)
+        localStorage.setItem(STORAGE_KEYS.cycleId, data.cycle.id)
+        localStorage.setItem(STORAGE_KEYS.cycleStart, String(stamp))
+      }
     } catch {
-      // ignore network errors for day start
+      // Server is down — don't create a local-only cycle without a server record
+      console.log('Failed to start day cycle — server unreachable')
     }
   }
 
-  const doEndDay = () => {
+  const doEndDay = async () => {
     dayEndedManually.current = true
-    const today = new Date().toISOString().slice(0, 10)
-    const vfCompletedDate = localStorage.getItem('limitless_vf_completed_date')
-    if (vfCompletedDate !== today) {
-      localStorage.setItem('limitless_vf_skipped', today)
+
+    try {
+      await fetch('/api/day-cycle/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+    } catch {
+      // ignore network errors
     }
-    setDayStartTimestamp(null)
-    localStorage.removeItem(STORAGE_KEYS.dayStart)
-    localStorage.removeItem(STORAGE_KEYS.statuses)
-    localStorage.removeItem(STORAGE_KEYS.currentView)
-    localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
-    localStorage.removeItem(STORAGE_KEYS.workSessions)
-    localStorage.removeItem(STORAGE_KEYS.nightRoutine)
-    setStatuses({})
-    setCurrentView('morning-routine')
-    setCreativeBlockStartTime(null)
+
+    clearDayState()
     setShowEpisodeClose(false)
     setEpisodeCloseData(null)
   }
@@ -277,14 +287,7 @@ export default function App() {
       creativeBlockStartTime={creativeBlockStartTime}
       onStartCreativeBlock={handleStartCreativeBlock}
       onNewDay={() => {
-        localStorage.removeItem(STORAGE_KEYS.statuses)
-        localStorage.removeItem(STORAGE_KEYS.currentView)
-        localStorage.removeItem(STORAGE_KEYS.creativeBlockStart)
-        localStorage.removeItem(STORAGE_KEYS.workSessions)
-        localStorage.removeItem(STORAGE_KEYS.nightRoutine)
-        setStatuses({})
-        setCurrentView('morning-routine')
-        setCreativeBlockStartTime(null)
+        clearDayState()
       }}
       dayActive={dayActive}
       onStartDay={handleStartDay}
@@ -326,6 +329,7 @@ export default function App() {
                 {activeTab === 'badges' && <BadgesTab />}
                 {activeTab === 'stats' && <StatsTab />}
                 {activeTab === 'history' && <HistoryTab />}
+                {activeTab === 'vf' && <VFAffirmations />}
               </motion.div>
             </AnimatePresence>
           )}
@@ -334,7 +338,7 @@ export default function App() {
 
       {/* Nav sits at the bottom of the flex column — no fixed positioning */}
       <BottomNav activeTab={activeTab} onChange={setActiveTab} />
-      <DevPanel />
+      <DevPanel onNavigate={setActiveTab} />
     </div>
   )
 }

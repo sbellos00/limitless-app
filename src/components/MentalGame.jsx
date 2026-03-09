@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { haptics } from '../utils/haptics.js'
 import BadgeDetailSheet from './BadgeDetailSheet.jsx'
-
-const TIER_NAMES = ['', 'Initiate', 'Apprentice', 'Warrior', 'Champion', 'Master']
-const TIER_XP = [0, 0, 750, 3000, 10000, 30000]
-const TIER_COLORS = ['', '#6B7280', '#60A5FA', '#A78BFA', '#F59E0B', '#EF4444']
+import {
+  getLevelForXp, getChapterForLevel, getLevelProgress,
+  LEVEL_THRESHOLDS, LEVEL_PERCENTILES, CHAPTERS, CHAPTER_VISUALS,
+  getStreakTier, BUILD_ORDER,
+} from '../data/levels.js'
 
 const DISCIPLINE_COLORS = {
   'reality-distortion-field': '#FF6B6B',
@@ -15,9 +16,10 @@ const DISCIPLINE_COLORS = {
   'carefreeness': '#7ED6DF',
   'presence': '#B8E994',
   'bias-to-action': '#F8C291',
+  'visionary-framing': '#C4B5FD',
 }
 
-// SVG glyph icons — geometric martial-arts symbols
+// SVG glyph icons
 function DisciplineGlyph({ slug, size = 22, color }) {
   const c = color || DISCIPLINE_COLORS[slug] || '#888'
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: '1.8', strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -29,113 +31,151 @@ function DisciplineGlyph({ slug, size = 22, color }) {
     case 'carefreeness': return <svg {...p}><path d="M2 12c3-4 6-5 10-5s7 1 10 5" /><path d="M2 17c3-4 6-5 10-5s7 1 10 5" /></svg>
     case 'presence': return <svg {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" /></svg>
     case 'bias-to-action': return <svg {...p}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+    case 'visionary-framing': return <svg {...p}><circle cx="12" cy="5" r="3" /><path d="M5 22l7-12 7 12" /></svg>
     default: return <svg {...p}><circle cx="12" cy="12" r="9" /></svg>
   }
 }
 
-// ─── Rank Seal (Centerpiece) ────────────────────────────────────────────────
+// ─── Streak Fire Visual ─────────────────────────────────────────────────────
 
-function RankSeal({ badges, progress, dailyXp }) {
-  if (!badges?.length) return null
-  const tiers = badges.map(b => progress?.[b.slug]?.tier || 1)
-  const avgTier = tiers.reduce((a, b) => a + b, 0) / tiers.length
-  const totalXp = badges.reduce((sum, b) => sum + (progress?.[b.slug]?.xp || 0), 0)
-  const totalTiers = tiers.reduce((a, b) => a + b, 0)
-  const maxTiers = badges.length * 5
-  const rankPct = (totalTiers / maxTiers) * 100
+function StreakFire({ streak, color }) {
+  const tier = getStreakTier(streak)
+  if (!tier.label || streak === 0) return null
 
-  const rankName = avgTier >= 4.5 ? 'Master' : avgTier >= 3.5 ? 'Champion' : avgTier >= 2.5 ? 'Warrior' : avgTier >= 1.5 ? 'Apprentice' : 'Initiate'
-  const rankColor = avgTier >= 4.5 ? '#EF4444' : avgTier >= 3.5 ? '#F59E0B' : avgTier >= 2.5 ? '#A78BFA' : avgTier >= 1.5 ? '#60A5FA' : '#6B7280'
-
-  const r = 58
-  const circ = 2 * Math.PI * r
+  const intensity = streak >= 30 ? 1.0 : streak >= 14 ? 0.7 : streak >= 7 ? 0.5 : 0.3
 
   return (
-    <div className="relative flex flex-col items-center py-2">
-      {/* Ambient glow from rank color */}
-      <div
-        className="pointer-events-none absolute inset-0 -top-8 opacity-40"
-        style={{ background: `radial-gradient(ellipse at center top, ${rankColor}15 0%, transparent 70%)` }}
-      />
-
-      {/* SVG Seal Ring */}
-      <div className="relative" style={{ width: 148, height: 148 }}>
-        <svg width="148" height="148" viewBox="0 0 148 148" className="absolute inset-0">
-          {/* Outer dashed decorative ring */}
-          <circle cx="74" cy="74" r="70" stroke={rankColor} strokeWidth="0.5" fill="none" strokeOpacity="0.1" strokeDasharray="3 8" />
-          {/* Track */}
-          <circle cx="74" cy="74" r={r} stroke="rgba(255,255,255,0.04)" strokeWidth="3.5" fill="none" />
-          {/* Progress arc */}
-          <motion.circle
-            cx="74" cy="74" r={r}
-            stroke={rankColor} strokeWidth="3.5" fill="none" strokeLinecap="round"
-            strokeDasharray={circ}
-            initial={{ strokeDashoffset: circ }}
-            animate={{ strokeDashoffset: circ * (1 - rankPct / 100) }}
-            transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{ transform: 'rotate(-90deg)', transformOrigin: '74px 74px' }}
+    <div className="flex items-center gap-1">
+      <motion.div
+        className="relative flex items-center"
+        animate={streak >= 7 ? {
+          filter: [`brightness(1)`, `brightness(1.3)`, `brightness(1)`],
+        } : undefined}
+        transition={streak >= 7 ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : undefined}
+      >
+        {/* Glow behind flame */}
+        {streak >= 7 && (
+          <div
+            className="absolute inset-0 rounded-full blur-md"
+            style={{
+              background: color,
+              opacity: intensity * 0.3,
+              transform: 'scale(2)',
+            }}
           />
-          {/* Inner decorative ring */}
-          <circle cx="74" cy="74" r="48" stroke={rankColor} strokeWidth="0.5" fill="none" strokeOpacity="0.06" />
-        </svg>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[9px] uppercase tracking-[0.3em] text-white/15">Rank</span>
-          <motion.span
-            key={rankName}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-[22px] font-bold leading-tight"
-            style={{ color: rankColor }}
-          >
-            {rankName}
-          </motion.span>
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-[28px] font-black tabular-nums text-white/50">{totalXp.toLocaleString()}</span>
-        <span className="text-[11px] text-white/15">XP</span>
-      </div>
-
-      {dailyXp > 0 && (
-        <motion.span
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-1 text-[12px] font-semibold text-emerald-400/50 tabular-nums"
-        >
-          +{dailyXp} today
-        </motion.span>
-      )}
+        )}
+        <span className="relative text-[11px]">{tier.flame}</span>
+      </motion.div>
+      <span
+        className="text-[10px] font-bold tabular-nums"
+        style={{ color, opacity: 0.5 + intensity * 0.3 }}
+      >
+        {streak}d
+      </span>
     </div>
   )
 }
 
-// ─── Discipline Card (Skill Node) ───────────────────────────────────────────
+// ─── Mission Card (expandable) ──────────────────────────────────────────────
 
-function DisciplineCard({ badge, progress, hasMission, onSelect, fullWidth }) {
-  const xp = progress?.xp || 0
-  const tier = progress?.tier || 1
-  const streak = progress?.currentStreak || 0
-  const nextTier = tier < 5 ? tier + 1 : null
-  const nextXp = nextTier ? TIER_XP[nextTier] : null
-  const prevXp = TIER_XP[tier]
-  const pct = nextXp ? Math.min(((xp - prevXp) / (nextXp - prevXp)) * 100, 100) : 100
-  const color = DISCIPLINE_COLORS[badge.slug] || '#888'
+function MissionCard({ mission }) {
+  const [expanded, setExpanded] = useState(false)
+  const color = DISCIPLINE_COLORS[mission.badgeSlug] || '#888'
 
   return (
     <motion.button
-      whileTap={{ scale: 0.96 }}
-      onClick={() => { haptics.tap(); onSelect?.() }}
-      className={`flex flex-col rounded-2xl p-4 text-left relative overflow-hidden ${fullWidth ? 'col-span-2' : ''}`}
+      className="w-full rounded-2xl px-4 py-3.5 relative overflow-hidden text-left"
       style={{
-        background: `linear-gradient(160deg, ${color}0A 0%, rgba(0,0,0,0.4) 100%)`,
-        border: `1px solid ${color}20`,
-        boxShadow: hasMission ? `0 0 24px ${color}08` : 'none',
+        background: `linear-gradient(160deg, ${color}0C 0%, rgba(0,0,0,0.4) 100%)`,
+        border: `1px solid ${color}18`,
+      }}
+      onClick={() => { haptics.tap(); setExpanded(!expanded) }}
+      whileTap={{ scale: 0.98 }}
+    >
+      {/* Left accent */}
+      <div className="absolute top-0 left-0 w-[3px] h-full" style={{ background: color, opacity: 0.5 }} />
+
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13px] font-semibold text-white/60">{mission.title}</span>
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded"
+          style={{ background: `${color}15`, color }}
+        >
+          +{mission.rewardXp} XP
+        </span>
+      </div>
+
+      <p className="text-[11px] text-white/25 leading-relaxed">{mission.successCriteria}</p>
+
+      {/* Expanded detail */}
+      <motion.div
+        initial={false}
+        animate={{ height: expanded ? 'auto' : 0, opacity: expanded ? 1 : 0 }}
+        transition={{ duration: 0.25 }}
+        className="overflow-hidden"
+      >
+        <div className="pt-3 mt-3 border-t border-white/[0.06]">
+          <p className="text-[12px] text-white/40 leading-relaxed">{mission.description}</p>
+          <div className="mt-2 flex items-center gap-3 text-[10px] text-white/20">
+            <span>Fail: +{mission.failXp} XP</span>
+            <span>·</span>
+            <span>Min tier: {mission.minTier}</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {!expanded && (
+        <span className="mt-1.5 block text-[9px] text-white/12">tap for details</span>
+      )}
+    </motion.button>
+  )
+}
+
+// ─── Discipline Story Card ──────────────────────────────────────────────────
+
+function DisciplineStoryCard({ badge, progress, hasMission, onSelect }) {
+  const xp = progress?.xp || 0
+  const streak = progress?.currentStreak || 0
+  const color = DISCIPLINE_COLORS[badge.slug] || '#888'
+
+  const level = getLevelForXp(xp)
+  const chapter = getChapterForLevel(level)
+  const chapterData = CHAPTERS[badge.slug]?.[chapter - 1]
+  const percentile = LEVEL_PERCENTILES[level - 1]
+  const { pct, xpToNext } = getLevelProgress(xp, level)
+  const visuals = CHAPTER_VISUALS[chapter - 1]
+
+  const nextLevel = level < 25 ? level + 1 : null
+  const nextChapter = nextLevel ? getChapterForLevel(nextLevel) : null
+  const isChapterEdge = nextChapter && nextChapter !== chapter
+  const nextChapterData = isChapterEdge ? CHAPTERS[badge.slug]?.[nextChapter - 1] : null
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={() => { haptics.tap(); onSelect?.() }}
+      className="flex flex-col rounded-2xl p-4 pb-3.5 text-left relative overflow-hidden"
+      style={{
+        background: `linear-gradient(160deg, ${color}${Math.round(visuals.bgOpacity * 255).toString(16).padStart(2, '0')} 0%, rgba(0,0,0,0.45) 100%)`,
+        border: `1px solid ${color}${Math.round(visuals.borderOpacity * 255).toString(16).padStart(2, '0')}`,
+        boxShadow: `0 0 ${chapter >= 3 ? 30 : 0}px ${color}${Math.round(visuals.glowOpacity * 255).toString(16).padStart(2, '0')}`,
       }}
     >
-      {/* Top accent line */}
-      <div className="absolute top-0 left-4 right-4 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${color}50, transparent)` }} />
+      {/* Top accent line — brighter at higher chapters */}
+      <div
+        className="absolute top-0 left-4 right-4 h-[1px]"
+        style={{ background: `linear-gradient(90deg, transparent, ${color}${Math.round(visuals.borderOpacity * 1.5 * 255).toString(16).padStart(2, '0')}, transparent)` }}
+      />
+
+      {/* Breathing glow for chapter 3+ */}
+      {visuals.breathe && (
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          animate={{ opacity: [visuals.glowOpacity * 0.3, visuals.glowOpacity * 0.8, visuals.glowOpacity * 0.3] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ background: `radial-gradient(ellipse at center, ${color}15 0%, transparent 70%)` }}
+        />
+      )}
 
       {/* Mission pulse */}
       {hasMission && (
@@ -147,52 +187,201 @@ function DisciplineCard({ badge, progress, hasMission, onSelect, fullWidth }) {
         />
       )}
 
-      <div className="flex items-start justify-between mb-3">
+      {/* Header: icon + streak */}
+      <div className="flex items-start justify-between mb-2">
         <div
           className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ background: `${color}10`, border: `1px solid ${color}15` }}
+          style={{
+            background: `${color}${Math.round(visuals.iconOpacity * 0.2 * 255).toString(16).padStart(2, '0')}`,
+            border: `1px solid ${color}${Math.round(visuals.iconOpacity * 0.15 * 255).toString(16).padStart(2, '0')}`,
+          }}
         >
           <DisciplineGlyph slug={badge.slug} size={20} color={color} />
         </div>
-        <div className="flex items-center gap-1.5">
-          {streak > 0 && (
-            <span className="text-[10px] font-medium text-amber-400/40 tabular-nums">{streak}d</span>
-          )}
-          <span
-            className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-            style={{ background: `${TIER_COLORS[tier]}12`, color: TIER_COLORS[tier] }}
-          >
-            {TIER_NAMES[tier]}
-          </span>
-        </div>
+        <StreakFire streak={streak} color={color} />
       </div>
 
-      <span className="text-[13px] font-semibold text-white/75">{badge.name}</span>
+      {/* Chapter title — the hero element */}
+      <p className="text-[16px] font-bold text-white/90 leading-tight">
+        {chapterData?.title || 'Initiate'}
+      </p>
 
-      <div className="mt-auto pt-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-white/20 tabular-nums">{xp.toLocaleString()} XP</span>
-          {nextXp ? (
-            <span className="text-[10px] text-white/12 tabular-nums">{nextXp.toLocaleString()}</span>
-          ) : (
-            <span className="text-[9px] font-bold" style={{ color }}>MAX</span>
-          )}
-        </div>
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: `${color}08` }}>
+      {/* Badge name */}
+      <p className="text-[11px] text-white/25 mt-0.5">{badge.name}</p>
+
+      {/* Level + percentile */}
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[11px] font-semibold tabular-nums" style={{ color, opacity: 0.7 }}>
+          Lvl {level}
+        </span>
+        <span className="text-[9px] text-white/15">·</span>
+        <span className="text-[10px] text-white/25 tabular-nums">
+          Top {percentile < 1 ? percentile + '%' : Math.round(percentile) + '%'}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-2.5">
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: `${color}0C` }}>
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.8, delay: 0.1 }}
             className="h-full rounded-full"
-            style={{ background: `linear-gradient(90deg, ${color}60, ${color})`, boxShadow: `0 0 8px ${color}30` }}
+            style={{
+              background: `linear-gradient(90deg, ${color}70, ${color})`,
+              boxShadow: chapter >= 3 ? `0 0 8px ${color}40` : `0 0 4px ${color}20`,
+            }}
           />
         </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[9px] text-white/15 tabular-nums">{xp.toLocaleString()} XP</span>
+          {xpToNext > 0 ? (
+            <span className="text-[9px] text-white/12 tabular-nums">
+              {xpToNext} to Lvl {level + 1}
+            </span>
+          ) : (
+            <span className="text-[9px] font-bold" style={{ color }}>MAX</span>
+          )}
+        </div>
       </div>
+
+      {/* Narrative line */}
+      <p className="text-[10px] text-white/20 mt-2 leading-relaxed italic">
+        {chapterData?.subtitle || ''}
+      </p>
+
+      {/* Next chapter teaser — shown when within 1 level of chapter boundary */}
+      {isChapterEdge && nextChapterData && (
+        <div
+          className="mt-2 pt-2 border-t"
+          style={{ borderColor: `${color}10` }}
+        >
+          <p className="text-[9px] text-white/15">
+            <span style={{ color, opacity: 0.5 }}>Next:</span>{' '}
+            <span className="font-semibold text-white/30">{nextChapterData.title}</span>
+          </p>
+        </div>
+      )}
     </motion.button>
   )
 }
 
-// ─── Active Missions (Quest Board) ──────────────────────────────────────────
+// ─── Player Build Card ──────────────────────────────────────────────────────
+
+function PlayerBuildCard({ badges, progress, dailyXp }) {
+  if (!badges?.length) return null
+
+  const totalXp = badges.reduce((sum, b) => sum + (progress?.[b.slug]?.xp || 0), 0)
+
+  // Build the trait lines from BUILD_ORDER
+  const traitLines = BUILD_ORDER.map(({ slug, label }) => {
+    const xp = progress?.[slug]?.xp || 0
+    const level = getLevelForXp(xp)
+    const chapter = getChapterForLevel(level)
+    const chapterData = CHAPTERS[slug]?.[chapter - 1]
+    const color = DISCIPLINE_COLORS[slug] || '#888'
+    const visuals = CHAPTER_VISUALS[chapter - 1]
+    return { slug, label, icon: chapterData?.icon || '—', level, chapter, color, visuals }
+  })
+
+  // Find the strongest and weakest for visual emphasis
+  const levels = traitLines.map(t => t.level)
+  const maxLevel = Math.max(...levels)
+  const minLevel = Math.min(...levels)
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden">
+      {/* Subtle multi-color ambient glow from strongest traits */}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
+        {traitLines.filter(t => t.chapter >= 3).map(t => (
+          <div
+            key={t.slug}
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(ellipse at center, ${t.color}10 0%, transparent 70%)` }}
+          />
+        ))}
+      </div>
+
+      <div
+        className="relative rounded-2xl p-5 pb-4"
+        style={{
+          background: 'linear-gradient(160deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.5) 100%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.3em] text-white/20">Your Build</p>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-[18px] font-black tabular-nums text-white/45">{totalXp.toLocaleString()}</span>
+              <span className="text-[10px] text-white/15">XP</span>
+            </div>
+          </div>
+          {dailyXp > 0 && (
+            <motion.span
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[12px] font-semibold text-emerald-400/50 tabular-nums"
+            >
+              +{dailyXp} today
+            </motion.span>
+          )}
+        </div>
+
+        {/* Trait lines */}
+        <div className="space-y-2">
+          {traitLines.map((trait) => {
+            const isStrongest = trait.level === maxLevel && maxLevel > 1
+            const isWeakest = trait.level === minLevel && minLevel < maxLevel
+            const iconOpacity = 0.35 + (trait.chapter / 5) * 0.65 // 0.55 to 1.0
+
+            return (
+              <motion.div
+                key={trait.slug}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 relative overflow-hidden"
+                style={{
+                  background: `${trait.color}${isStrongest ? '0C' : '05'}`,
+                  border: `1px solid ${trait.color}${isStrongest ? '18' : '08'}`,
+                }}
+                initial={false}
+                animate={trait.chapter >= 4 ? {
+                  boxShadow: [
+                    `0 0 0px ${trait.color}00`,
+                    `0 0 12px ${trait.color}12`,
+                    `0 0 0px ${trait.color}00`,
+                  ],
+                } : undefined}
+                transition={trait.chapter >= 4 ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : undefined}
+              >
+                {/* Trait label */}
+                <span className="text-[11px] text-white/30 shrink-0 w-[105px]">
+                  {trait.label}
+                </span>
+
+                {/* Icon name — the hero */}
+                <span
+                  className="text-[13px] font-semibold flex-1 truncate"
+                  style={{ color: trait.color, opacity: iconOpacity }}
+                >
+                  {trait.icon}
+                </span>
+
+                {/* Level pip */}
+                <span className="text-[9px] text-white/20 tabular-nums shrink-0">
+                  {trait.level}
+                </span>
+              </motion.div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Active Missions ────────────────────────────────────────────────────────
 
 function ActiveMissions({ missions }) {
   const pending = missions?.active?.filter(m => m.status === 'pending') || []
@@ -203,31 +392,21 @@ function ActiveMissions({ missions }) {
       <div className="flex items-center gap-2 mb-3">
         <motion.div
           className="h-1.5 w-1.5 rounded-full bg-amber-400"
-          animate={{ opacity: [0.4, 1, 0.4], boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 6px rgba(251,191,36,0.4)', '0 0 0px rgba(251,191,36,0)'] }}
+          animate={{
+            opacity: [0.4, 1, 0.4],
+            boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 6px rgba(251,191,36,0.4)', '0 0 0px rgba(251,191,36,0)'],
+          }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400/50">Active Missions</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400/50">
+          Active Missions
+        </p>
+        <span className="text-[10px] text-white/15 tabular-nums ml-auto">{pending.length} pending</span>
       </div>
       <div className="space-y-2">
-        {pending.slice(0, 3).map(m => {
-          const color = DISCIPLINE_COLORS[m.badgeSlug] || '#888'
-          return (
-            <div
-              key={m.missionId}
-              className="rounded-xl px-4 py-3 relative overflow-hidden"
-              style={{ background: `${color}06`, border: `1px solid ${color}12` }}
-            >
-              <div className="absolute top-0 left-0 w-[3px] h-full" style={{ background: color, opacity: 0.4 }} />
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[13px] font-semibold text-white/55">{m.title}</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: `${color}15`, color }}>
-                  +{m.rewardXp} XP
-                </span>
-              </div>
-              <p className="text-[11px] text-white/20">{m.successCriteria || m.description}</p>
-            </div>
-          )
-        })}
+        {pending.map(m => (
+          <MissionCard key={m.missionId} mission={m} />
+        ))}
       </div>
     </div>
   )
@@ -327,27 +506,26 @@ export default function MentalGame() {
 
   return (
     <div className="flex flex-1 flex-col px-6 py-5 gap-6 overflow-y-auto no-scrollbar">
-      {/* Rank Seal — the centerpiece */}
-      <RankSeal badges={badges} progress={progress} dailyXp={dailyXp} />
+      {/* Player Build Card */}
+      <PlayerBuildCard badges={badges} progress={progress} dailyXp={dailyXp} />
 
       {/* Decorative divider */}
       <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-      {/* Active Missions */}
+      {/* Active Missions — prominent, above disciplines */}
       <ActiveMissions missions={missions} />
 
-      {/* Discipline Grid */}
+      {/* Disciplines — story cards, single column */}
       <div>
         <p className="text-[11px] uppercase tracking-[0.2em] text-white/15 mb-3">Disciplines</p>
-        <div className="grid grid-cols-2 gap-3">
-          {badges.map((badge, i) => (
-            <DisciplineCard
+        <div className="space-y-3">
+          {badges.map((badge) => (
+            <DisciplineStoryCard
               key={badge.slug}
               badge={badge}
               progress={progress[badge.slug]}
               hasMission={missionSlugs.has(badge.slug)}
               onSelect={() => setSelected(badge.slug)}
-              fullWidth={i === badges.length - 1 && badges.length % 2 !== 0}
             />
           ))}
         </div>

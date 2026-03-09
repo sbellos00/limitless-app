@@ -1,4 +1,6 @@
-# System Research — Data Layer Analysis
+> **OUTDATED** — This research predates the SQLite migration and cycle-based redesign. Kept for historical context only.
+
+# System Research — Data Layer Analysis (ARCHIVED)
 
 Research notes on the current Limitless data layer: how it works, what breaks, and why SQLite is the right next step.
 

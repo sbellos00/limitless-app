@@ -135,8 +135,7 @@ export default function NightRoutine({ onNewDay, onViewChange }) {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return
-        const today = new Date().toISOString().slice(0, 10)
-        if (data.date !== today) return
+        if (!data.cycleId) return
         setStatuses(prev => {
           const next = { ...prev }
           for (const item of nightRoutineItems) {
