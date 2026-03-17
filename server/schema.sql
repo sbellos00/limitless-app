@@ -104,6 +104,36 @@ CREATE TABLE IF NOT EXISTS fitmind_data (
   PRIMARY KEY (user_id, cycle_id)
 );
 
+-- ─── Mental Fitness Sessions (append-only skill system log) ─────────────────
+
+CREATE TABLE IF NOT EXISTS mf_sessions (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  timestamp        TEXT NOT NULL,
+  practice_id      TEXT NOT NULL,
+  practice_name    TEXT NOT NULL,
+  is_custom        INTEGER NOT NULL DEFAULT 0,
+  primary_skill    TEXT,
+  secondary_skill  TEXT,
+  xp_awarded       INTEGER NOT NULL DEFAULT 0,
+  base_xp          INTEGER,
+  multiplier       REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mf_sessions_user ON mf_sessions(user_id, timestamp);
+
+-- ─── Mental Fitness Custom Practices (persistent) ───────────────────────────
+
+CREATE TABLE IF NOT EXISTS mf_custom_practices (
+  id              TEXT NOT NULL,
+  user_id         TEXT NOT NULL REFERENCES users(id),
+  name            TEXT NOT NULL,
+  primary_skill   TEXT NOT NULL,
+  secondary_skill TEXT,
+  created_at      TEXT NOT NULL,
+  PRIMARY KEY (user_id, id)
+);
+
 CREATE TABLE IF NOT EXISTS morning_state (
   user_id                TEXT NOT NULL REFERENCES users(id),
   cycle_id               TEXT NOT NULL REFERENCES day_cycles(id),

@@ -30,26 +30,28 @@ export default function AffirmationResistance({ affirmation, onComplete }) {
 
   const progress = useMotionValue(0)
 
-  // White → dark gray (not full black)
+  // Background darkens smoothly (intended feel)
   const bgColor = useTransform(progress, [0, 1], ['#ffffff', '#1a1a1a'])
-  const textColor = useTransform(progress, [0, 0.499, 0.501, 1], ['#000000', '#000000', '#ffffff', '#ffffff'])
-  const mutedColor = useTransform(progress, [0, 0.499, 0.501, 1], [
+  // UI elements flip between score 5 (0.5) and 6 (0.6) — never on an integer tap
+  const FLIP = [0, 0.549, 0.551, 1]
+  const textColor = useTransform(progress, FLIP, ['#000000', '#000000', '#ffffff', '#ffffff'])
+  const mutedColor = useTransform(progress, FLIP, [
     'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.6)',
     'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.7)'
   ])
-  const btnBg = useTransform(progress, [0, 0.499, 0.501, 1], [
+  const btnBg = useTransform(progress, FLIP, [
     'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.15)',
     'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.18)'
   ])
-  const scoreFaint = useTransform(progress, [0, 0.499, 0.501, 1], [
+  const scoreFaint = useTransform(progress, FLIP, [
     'rgba(0,0,0,0.12)', 'rgba(0,0,0,0.12)',
     'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.18)'
   ])
-  const orbitStroke = useTransform(progress, [0, 0.499, 0.501, 1], [
+  const orbitStroke = useTransform(progress, FLIP, [
     'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.4)',
     'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.45)'
   ])
-  const flashBg = useTransform(progress, [0, 0.499, 0.501, 1], [
+  const flashBg = useTransform(progress, FLIP, [
     'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.15), transparent 60%)',
     'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.15), transparent 60%)',
     'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2), transparent 60%)',

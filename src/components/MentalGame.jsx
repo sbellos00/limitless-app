@@ -9,7 +9,7 @@ import {
 } from '../data/levels.js'
 
 const DISCIPLINE_COLORS = {
-  'reality-distortion-field': '#FF6B6B',
+  'rdf': '#FF6B6B',
   'frame-control': '#4ECDC4',
   'fearlessness': '#FF9F43',
   'aggression': '#EE5A24',
@@ -24,7 +24,7 @@ function DisciplineGlyph({ slug, size = 22, color }) {
   const c = color || DISCIPLINE_COLORS[slug] || '#888'
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: '1.8', strokeLinecap: 'round', strokeLinejoin: 'round' }
   switch (slug) {
-    case 'reality-distortion-field': return <svg {...p}><path d="M12 5l7 7-7 7-7-7z" /><circle cx="12" cy="12" r="2.5" fill={c} fillOpacity="0.15" /></svg>
+    case 'rdf': return <svg {...p}><path d="M12 5l7 7-7 7-7-7z" /><circle cx="12" cy="12" r="2.5" fill={c} fillOpacity="0.15" /></svg>
     case 'frame-control': return <svg {...p}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /></svg>
     case 'fearlessness': return <svg {...p}><path d="M12 2v16M8 6l4-4 4 4M7 22h10" /></svg>
     case 'aggression': return <svg {...p}><path d="M12 22c-2-3-8-7-8-13a8 8 0 0116 0c0 6-6 10-8 13z" /></svg>
@@ -96,7 +96,7 @@ function MissionCard({ mission }) {
       <div className="absolute top-0 left-0 w-[3px] h-full" style={{ background: color, opacity: 0.5 }} />
 
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13px] font-semibold text-white/60">{mission.title}</span>
+        <span className="text-[13px] font-semibold text-white/75">{mission.title}</span>
         <span
           className="text-[10px] font-bold px-2 py-0.5 rounded"
           style={{ background: `${color}15`, color }}
@@ -105,7 +105,7 @@ function MissionCard({ mission }) {
         </span>
       </div>
 
-      <p className="text-[11px] text-white/25 leading-relaxed">{mission.successCriteria}</p>
+      <p className="text-[11px] text-white/50 leading-relaxed">{mission.successCriteria}</p>
 
       {/* Expanded detail */}
       <motion.div
@@ -115,8 +115,8 @@ function MissionCard({ mission }) {
         className="overflow-hidden"
       >
         <div className="pt-3 mt-3 border-t border-white/[0.06]">
-          <p className="text-[12px] text-white/40 leading-relaxed">{mission.description}</p>
-          <div className="mt-2 flex items-center gap-3 text-[10px] text-white/20">
+          <p className="text-[12px] text-white/55 leading-relaxed">{mission.description}</p>
+          <div className="mt-2 flex items-center gap-3 text-[10px] text-white/35">
             <span>Fail: +{mission.failXp} XP</span>
             <span>·</span>
             <span>Min tier: {mission.minTier}</span>
@@ -125,7 +125,7 @@ function MissionCard({ mission }) {
       </motion.div>
 
       {!expanded && (
-        <span className="mt-1.5 block text-[9px] text-white/12">tap for details</span>
+        <span className="mt-1.5 block text-[9px] text-white/30">tap for details</span>
       )}
     </motion.button>
   )
@@ -207,15 +207,15 @@ function DisciplineStoryCard({ badge, progress, hasMission, onSelect }) {
       </p>
 
       {/* Badge name */}
-      <p className="text-[11px] text-white/25 mt-0.5">{badge.name}</p>
+      <p className="text-[11px] text-white/50 mt-0.5">{badge.name}</p>
 
       {/* Level + percentile */}
       <div className="flex items-center gap-2 mt-2">
         <span className="text-[11px] font-semibold tabular-nums" style={{ color, opacity: 0.7 }}>
           Lvl {level}
         </span>
-        <span className="text-[9px] text-white/15">·</span>
-        <span className="text-[10px] text-white/25 tabular-nums">
+        <span className="text-[9px] text-white/35">·</span>
+        <span className="text-[10px] text-white/45 tabular-nums">
           Top {percentile < 1 ? percentile + '%' : Math.round(percentile) + '%'}
         </span>
       </div>
@@ -235,9 +235,9 @@ function DisciplineStoryCard({ badge, progress, hasMission, onSelect }) {
           />
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-[9px] text-white/15 tabular-nums">{xp.toLocaleString()} XP</span>
+          <span className="text-[9px] text-white/40 tabular-nums">{xp.toLocaleString()} XP</span>
           {xpToNext > 0 ? (
-            <span className="text-[9px] text-white/12 tabular-nums">
+            <span className="text-[9px] text-white/30 tabular-nums">
               {xpToNext} to Lvl {level + 1}
             </span>
           ) : (
@@ -247,7 +247,7 @@ function DisciplineStoryCard({ badge, progress, hasMission, onSelect }) {
       </div>
 
       {/* Narrative line */}
-      <p className="text-[10px] text-white/20 mt-2 leading-relaxed italic">
+      <p className="text-[10px] text-white/40 mt-2 leading-relaxed italic">
         {chapterData?.subtitle || ''}
       </p>
 
@@ -257,9 +257,9 @@ function DisciplineStoryCard({ badge, progress, hasMission, onSelect }) {
           className="mt-2 pt-2 border-t"
           style={{ borderColor: `${color}10` }}
         >
-          <p className="text-[9px] text-white/15">
-            <span style={{ color, opacity: 0.5 }}>Next:</span>{' '}
-            <span className="font-semibold text-white/30">{nextChapterData.title}</span>
+          <p className="text-[9px] text-white/30">
+            <span style={{ color, opacity: 0.6 }}>Next:</span>{' '}
+            <span className="font-semibold text-white/45">{nextChapterData.title}</span>
           </p>
         </div>
       )}
@@ -313,17 +313,17 @@ function PlayerBuildCard({ badges, progress, dailyXp }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.3em] text-white/20">Your Build</p>
+            <p className="text-[9px] uppercase tracking-[0.3em] text-white/35">Your Build</p>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-[18px] font-black tabular-nums text-white/45">{totalXp.toLocaleString()}</span>
-              <span className="text-[10px] text-white/15">XP</span>
+              <span className="text-[18px] font-black tabular-nums text-white/60">{totalXp.toLocaleString()}</span>
+              <span className="text-[10px] text-white/30">XP</span>
             </div>
           </div>
           {dailyXp > 0 && (
             <motion.span
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[12px] font-semibold text-emerald-400/50 tabular-nums"
+              className="text-[12px] font-semibold text-emerald-400/70 tabular-nums"
             >
               +{dailyXp} today
             </motion.span>
@@ -356,7 +356,7 @@ function PlayerBuildCard({ badges, progress, dailyXp }) {
                 transition={trait.chapter >= 4 ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : undefined}
               >
                 {/* Trait label */}
-                <span className="text-[11px] text-white/30 shrink-0 w-[105px]">
+                <span className="text-[11px] text-white/45 shrink-0 w-[105px]">
                   {trait.label}
                 </span>
 
@@ -369,7 +369,7 @@ function PlayerBuildCard({ badges, progress, dailyXp }) {
                 </span>
 
                 {/* Level pip */}
-                <span className="text-[9px] text-white/20 tabular-nums shrink-0">
+                <span className="text-[9px] text-white/40 tabular-nums shrink-0">
                   {trait.level}
                 </span>
               </motion.div>
@@ -398,10 +398,10 @@ function ActiveMissions({ missions }) {
           }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400/50">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400/70">
           Active Missions
         </p>
-        <span className="text-[10px] text-white/15 tabular-nums ml-auto">{pending.length} pending</span>
+        <span className="text-[10px] text-white/35 tabular-nums ml-auto">{pending.length} pending</span>
       </div>
       <div className="space-y-2">
         {pending.map(m => (
@@ -422,8 +422,8 @@ function DailyTraining({ badgeDaily }) {
   if (exercises.length === 0 && missions.length === 0) {
     return (
       <div className="rounded-xl bg-white/[0.02] border border-white/[0.03] px-4 py-5 text-center">
-        <p className="text-[13px] text-white/15">No training yet today</p>
-        <p className="text-[11px] text-white/[0.08] mt-1">Select a discipline to begin</p>
+        <p className="text-[13px] text-white/40">No training yet today</p>
+        <p className="text-[11px] text-white/30 mt-1">Select a discipline to begin</p>
       </div>
     )
   }
@@ -431,8 +431,8 @@ function DailyTraining({ badgeDaily }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2.5">
-        <span className="text-[11px] uppercase tracking-[0.2em] text-white/15">Training Log</span>
-        <span className="text-[12px] font-bold text-emerald-400/50 tabular-nums">+{totalXp} XP</span>
+        <span className="text-[11px] uppercase tracking-[0.2em] text-white/30">Training Log</span>
+        <span className="text-[12px] font-bold text-emerald-400/70 tabular-nums">+{totalXp} XP</span>
       </div>
       <div className="space-y-1.5">
         {exercises.map((ex, i) => {
@@ -440,10 +440,10 @@ function DailyTraining({ badgeDaily }) {
           const time = new Date(ex.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           return (
             <div key={i} className="flex items-center gap-2.5 text-[11px] rounded-lg px-3 py-1.5 bg-white/[0.02]">
-              <span className="w-10 text-white/12 tabular-nums">{time}</span>
+              <span className="w-10 text-white/40 tabular-nums">{time}</span>
               <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="text-white/25 flex-1 truncate">{ex.exerciseId?.replace(/-/g, ' ')}</span>
-              <span className="text-emerald-400/40 tabular-nums">+{ex.xpGained}</span>
+              <span className="text-white/40 flex-1 truncate">{ex.exerciseId?.replace(/-/g, ' ')}</span>
+              <span className="text-emerald-400/60 tabular-nums">+{ex.xpGained}</span>
             </div>
           )
         })}
@@ -452,10 +452,10 @@ function DailyTraining({ badgeDaily }) {
           const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           return (
             <div key={`m${i}`} className="flex items-center gap-2.5 text-[11px] rounded-lg px-3 py-1.5 bg-white/[0.02]">
-              <span className="w-10 text-white/12 tabular-nums">{time}</span>
+              <span className="w-10 text-white/40 tabular-nums">{time}</span>
               <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="text-white/25 flex-1 truncate">Mission {m.success ? 'completed' : 'failed'}</span>
-              <span className={`tabular-nums ${m.success ? 'text-emerald-400/40' : 'text-white/15'}`}>+{m.xpGained}</span>
+              <span className="text-white/40 flex-1 truncate">Mission {m.success ? 'completed' : 'failed'}</span>
+              <span className={`tabular-nums ${m.success ? 'text-emerald-400/60' : 'text-white/30'}`}>+{m.xpGained}</span>
             </div>
           )
         })}
@@ -517,7 +517,7 @@ export default function MentalGame() {
 
       {/* Disciplines — story cards, single column */}
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-white/15 mb-3">Disciplines</p>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-white/30 mb-3">Disciplines</p>
         <div className="space-y-3">
           {badges.map((badge) => (
             <DisciplineStoryCard

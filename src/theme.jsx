@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 
 // ── 8 Level Themes ─────────────────────────────────────────────────────────
 // Each level completely transforms the app's visual identity.
@@ -270,22 +270,47 @@ export function applyThemeToDOM(theme) {
   root.setAttribute('data-theme', theme.special)
 }
 
+// ── CSS Variables from theme (for local scoping on containers) ───────────────
+
+export function getThemeVars(theme) {
+  return {
+    '--bg-primary': theme.bg,
+    '--bg-secondary': theme.bgSecondary,
+    '--bg-card': theme.bgCard,
+    '--text-primary': theme.text,
+    '--text-secondary': theme.textSecondary,
+    '--text-muted': theme.textMuted,
+    '--accent': theme.accent,
+    '--accent-alt': theme.accentAlt,
+    '--card-border': theme.cardBorder,
+    '--nav-bg': theme.navBg,
+    '--nav-border': theme.navBorder,
+    '--font-body': theme.fontBody,
+    '--font-header': theme.fontHeader,
+    '--radius': theme.radius,
+    '--radius-sm': theme.radiusSm,
+    '--border-width': theme.borderWidth,
+    '--glass-bg': theme.glassBg,
+    '--glass-border': theme.glassBorder,
+    '--glow': String(theme.glow),
+  }
+}
+
 // ── React Context ────────────────────────────────────────────────────────────
 
+const APP_THEME = getThemeForXp(0)
 const ThemeContext = createContext(null)
-
-const MF_STORAGE_KEY = 'limitless_mental_fitness'
 
 function getMfXp() {
   try {
-    const raw = localStorage.getItem(MF_STORAGE_KEY)
+    const cached = localStorage.getItem('limitless_mf_xp')
+    if (cached != null) return parseInt(cached, 10) || 0
+    const raw = localStorage.getItem('limitless_mental_fitness')
     if (!raw) return 0
     const data = JSON.parse(raw)
     const sessions = data.sessions || []
     return sessions.reduce((sum, s) => {
-      // New format: xpAwarded is set directly
       if (s.xpAwarded != null) return sum + (s.xpAwarded || 0)
-      // Legacy format: minutes * depth multiplier
       const DEPTH_MULT = [1, 1.5, 2]
       const mult = DEPTH_MULT[(s.depth || 1) - 1] || 1
       return sum + Math.round((s.durationMin || 0) * mult)
@@ -294,15 +319,22 @@ function getMfXp() {
 }
 
 export function ThemeProvider({ children }) {
-  const xp = getMfXp()
-  const theme = useMemo(() => getThemeForXp(xp), [xp])
+  const [mfXp, setMfXp] = useState(getMfXp)
+  const mfTheme = useMemo(() => getThemeForXp(mfXp), [mfXp])
 
   useEffect(() => {
-    applyThemeToDOM(theme)
-  }, [theme])
+    applyThemeToDOM(APP_THEME)
+  }, [])
+
+  const value = useMemo(() => ({
+    theme: APP_THEME,
+    mfTheme,
+    mfXp,
+    setMfXp,
+  }), [mfTheme, mfXp])
 
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )

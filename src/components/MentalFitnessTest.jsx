@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { sounds } from '../utils/sounds.js'
 import { haptics } from '../utils/haptics.js'
-import { THEME_LEVELS, applyThemeToDOM, getThemeForXp } from '../theme.jsx'
+import { THEME_LEVELS, getThemeForXp, useTheme } from '../theme.jsx'
 import {
   LevelBackground, LevelDivider, LevelSectionHeader, LevelCard,
   LevelButton, getLevelNavStyle, LevelStatRow, LevelCharacterHeader,
@@ -10,7 +10,7 @@ import {
 } from './mf-levels.jsx'
 import { SwissHomeScreen, SwissStatsScreen, SwissTrainScreen } from './mf-swiss.jsx'
 import { AnimeHomeScreen, AnimeStatsScreen, AnimeTrainScreen } from './mf-anime.jsx'
-import { NeubrutHomeScreen, NeubrutStatsScreen, NeubrutTrainScreen } from './mf-neubrutalism.jsx'
+import { FilmHomeScreen, FilmStatsScreen, FilmTrainScreen } from './mf-film.jsx'
 import { InkHomeScreen, InkStatsScreen, InkTrainScreen } from './mf-ink.jsx'
 import { ConstructivistHomeScreen, ConstructivistStatsScreen, ConstructivistTrainScreen } from './mf-constructivist.jsx'
 import { ScandinavianHomeScreen, ScandinavianStatsScreen, ScandinavianTrainScreen } from './mf-scandinavian.jsx'
@@ -27,7 +27,7 @@ import {
 
 const SCREEN_MAP = {
   anime:      { Home: AnimeHomeScreen, Stats: AnimeStatsScreen, Train: AnimeTrainScreen },
-  film:       { Home: NeubrutHomeScreen, Stats: NeubrutStatsScreen, Train: NeubrutTrainScreen },
+  film:       { Home: FilmHomeScreen, Stats: FilmStatsScreen, Train: FilmTrainScreen },
   ink:        { Home: InkHomeScreen, Stats: InkStatsScreen, Train: InkTrainScreen },
   'war-room': { Home: ConstructivistHomeScreen, Stats: ConstructivistStatsScreen, Train: ConstructivistTrainScreen },
   mountain:   { Home: SwissHomeScreen, Stats: SwissStatsScreen, Train: SwissTrainScreen },
@@ -102,9 +102,7 @@ const SKILL_AXES = CATEGORIES.map(c => ({
   practices: PRACTICES.filter(p => c.skills.includes(p.primarySkill)).map(p => p.id),
 }))
 
-// ── Persistence ─────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = 'limitless_mental_fitness'
+// ── Persistence (server-backed) ──────────────────────────────────────────────
 
 function migrateSession(s) {
   // Already migrated
@@ -124,27 +122,39 @@ function migrateSession(s) {
   }
 }
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { sessions: [], customPractices: [] }
-    const data = JSON.parse(raw)
-    let sessions = (data.sessions || []).filter(s => s.practiceId)
-
-    // Migration: add skill info to legacy sessions
-    const needsMigration = sessions.some(s => s.xpAwarded == null)
-    if (needsMigration) {
-      sessions = sessions.map(migrateSession)
-      const migrated = { ...data, sessions, customPractices: data.customPractices || [] }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
-    }
-
-    return { sessions, customPractices: data.customPractices || [] }
-  } catch { return { sessions: [], customPractices: [] } }
+function cacheMfXp(sessions) {
+  const xp = sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
+  localStorage.setItem('limitless_mf_xp', String(xp))
+  return xp
 }
 
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+async function fetchMfData() {
+  try {
+    const res = await fetch('/api/mf-sessions')
+    if (!res.ok) throw new Error('Failed to load')
+    const data = await res.json()
+    data.sessions = (data.sessions || []).filter(s => s.practiceId).map(migrateSession)
+    data.customPractices = data.customPractices || []
+    return data
+  } catch {
+    return { sessions: [], customPractices: [] }
+  }
+}
+
+async function postSession(session) {
+  await fetch('/api/mf-sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(session),
+  })
+}
+
+async function postCustomPractice(practice) {
+  await fetch('/api/mf-custom-practices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(practice),
+  })
 }
 
 function getDateKey(d) { return new Date(d).toLocaleDateString('en-CA') }
@@ -1540,13 +1550,55 @@ export {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 export default function MentalFitnessTest({ onBack }) {
+  const { setMfXp } = useTheme()
   const [screen, setScreen] = useState('overview')
   const [logging, setLogging] = useState(false)       // false | 'normal' | 'psychedelic'
   const [activeCheckIn, setActiveCheckIn] = useState(null)
   const [showCustomModal, setShowCustomModal] = useState(false)
-  const [data, setData] = useState(loadData)
+  const [data, setData] = useState({ sessions: [], customPractices: [] })
+  const [loading, setLoading] = useState(true)
   const stats = useStats(data.sessions)
   const { level } = stats
+
+  // Load from server on mount, with one-time localStorage migration
+  useEffect(() => {
+    (async () => {
+      const serverData = await fetchMfData()
+
+      // One-time migration: if server is empty but localStorage has data
+      if (serverData.sessions.length === 0) {
+        const lsRaw = localStorage.getItem('limitless_mental_fitness')
+        if (lsRaw) {
+          try {
+            const lsData = JSON.parse(lsRaw)
+            const lsSessions = (lsData.sessions || []).filter(s => s.practiceId).map(migrateSession)
+            const lsCustom = lsData.customPractices || []
+            if (lsSessions.length > 0) {
+              await fetch('/api/mf-sessions/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessions: lsSessions, customPractices: lsCustom }),
+              })
+              const migrated = await fetchMfData()
+              setData(migrated)
+              const xp = cacheMfXp(migrated.sessions)
+              setMfXp(xp)
+              localStorage.removeItem('limitless_mental_fitness')
+              setLoading(false)
+              return
+            }
+          } catch (e) {
+            console.error('MF migration failed:', e)
+          }
+        }
+      }
+
+      setData(serverData)
+      const xp = cacheMfXp(serverData.sessions)
+      setMfXp(xp)
+      setLoading(false)
+    })()
+  }, [])
 
   const theme = useMemo(() => {
     const xp = data.sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
@@ -1558,29 +1610,35 @@ export default function MentalFitnessTest({ onBack }) {
   const handleSave = useCallback((session) => {
     setData(prev => {
       const next = { ...prev, sessions: [...prev.sessions, session] }
-      saveData(next)
-      const newXp = next.sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
-      applyThemeToDOM(getThemeForXp(newXp))
+      setMfXp(cacheMfXp(next.sessions))
       return next
     })
     setLogging(false)
+    postSession(session).catch(e => console.error('Failed to save mf session:', e))
   }, [])
 
   const handleCreateCustom = useCallback((practice) => {
-    setData(prev => {
-      const next = { ...prev, customPractices: [...(prev.customPractices || []), practice] }
-      saveData(next)
-      return next
-    })
+    setData(prev => ({
+      ...prev,
+      customPractices: [...(prev.customPractices || []), practice]
+    }))
     setShowCustomModal(false)
+    postCustomPractice(practice).catch(e => console.error('Failed to save custom practice:', e))
   }, [])
 
-  const seedData = useCallback((levelIdx) => {
+  const seedData = useCallback(async (levelIdx) => {
     const seed = generateSeedForLevel(levelIdx)
-    saveData(seed)
     setData(seed)
-    const newXp = seed.sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
-    applyThemeToDOM(getThemeForXp(newXp))
+    setMfXp(cacheMfXp(seed.sessions))
+    try {
+      await fetch('/api/mf-sessions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(seed),
+      })
+    } catch (e) {
+      console.error('Failed to seed mf data:', e)
+    }
   }, [])
 
   const [xpReward, setXpReward] = useState(null)
@@ -1600,14 +1658,21 @@ export default function MentalFitnessTest({ onBack }) {
     }
     setData(prev => {
       const next = { ...prev, sessions: [...prev.sessions, session] }
-      saveData(next)
-      const newXp = next.sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
-      applyThemeToDOM(getThemeForXp(newXp))
+      setMfXp(cacheMfXp(next.sessions))
       return next
     })
+    postSession(session).catch(e => console.error('Failed to save checkin session:', e))
     setXpReward({ id: checkIn.id, amount: CHECKIN_XP })
     setTimeout(() => setXpReward(null), 1500)
   }, [])
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
+      </div>
+    )
+  }
 
   // Full-screen check-in overlay
   if (activeCheckIn) {

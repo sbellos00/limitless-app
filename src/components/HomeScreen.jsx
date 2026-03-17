@@ -194,7 +194,7 @@ function QuestChain({ morningState, creativeState, workSessions, nightRoutine })
   const current = phases.findIndex(p => !p.done)
 
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/[0.07] px-4 py-4">
+    <div className="rounded-xl glass-card px-4 py-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] uppercase tracking-[0.2em] text-white/30">Quest Chain</span>
         <span className="text-[10px] text-white/12 tabular-nums">{completed}/{phases.length}</span>
@@ -244,7 +244,7 @@ function AffirmationGrid({ vfGame, affirmations }) {
   const hasData = Object.keys(scoreMap).length > 0
 
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/[0.07] px-4 py-3">
+    <div className="rounded-xl glass-card px-4 py-3">
       <div className="flex items-center justify-between mb-2.5">
         <span className="text-[10px] uppercase tracking-[0.2em] text-white/30">Inner Grid</span>
         {!hasData && <span className="text-[9px] text-white/[0.08]">No VF data</span>}
@@ -313,7 +313,7 @@ function KeyDecisionsCard({ kdData, onRefresh }) {
   const latest = decisions[decisions.length - 1]
 
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/[0.07] px-4 py-3 space-y-2">
+    <div className="rounded-xl glass-card px-4 py-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.2em] text-white/30">Decisions</span>
         <div className="flex items-center gap-2">
@@ -393,7 +393,7 @@ function KeyDecisionsCard({ kdData, onRefresh }) {
 function ChapterPreview({ chapter }) {
   if (!chapter) return null
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/[0.07] px-4 py-3">
+    <div className="rounded-xl glass-card px-4 py-3">
       <p className="text-[10px] uppercase tracking-[0.2em] text-white/12 mb-1">Latest Chapter</p>
       <p className="text-[13px] text-white/35">{chapter.title || `Chapter ${chapter.chapter}`}</p>
     </div>
@@ -512,15 +512,15 @@ export default function HomeScreen() {
       {/* Resource Meters */}
       {dopamine?.cycleId && (
         <div className="flex gap-2">
-          <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.04] px-3 py-2.5 text-center">
+          <div className="flex-1 rounded-xl glass-card px-3 py-2.5 text-center">
             <span className="block text-[16px] font-bold text-green-400/70 tabular-nums">{dopamine.farming?.totalPoints || 0}</span>
             <span className="block text-[9px] text-white/15">Farm pts</span>
           </div>
-          <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.04] px-3 py-2.5 text-center">
+          <div className="flex-1 rounded-xl glass-card px-3 py-2.5 text-center">
             <span className="block text-[16px] font-bold text-red-400/70 tabular-nums">{dopamine.overstimulation?.totalEvents || 0}</span>
             <span className="block text-[9px] text-white/15">Overstim</span>
           </div>
-          <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.04] px-3 py-2.5 text-center">
+          <div className="flex-1 rounded-xl glass-card px-3 py-2.5 text-center">
             <span className="block text-[16px] font-bold text-purple-300/70 tabular-nums">{dopamine.netScore ?? 5}</span>
             <span className="block text-[9px] text-white/15">Net</span>
           </div>

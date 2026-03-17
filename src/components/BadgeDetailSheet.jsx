@@ -7,7 +7,7 @@ import {
 } from '../data/levels.js'
 
 const DISCIPLINE_COLORS = {
-  'reality-distortion-field': '#FF6B6B',
+  'rdf': '#FF6B6B',
   'frame-control': '#4ECDC4',
   'fearlessness': '#FF9F43',
   'aggression': '#EE5A24',
@@ -21,7 +21,7 @@ function DisciplineGlyph({ slug, size = 28 }) {
   const c = DISCIPLINE_COLORS[slug] || '#888'
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: '1.8', strokeLinecap: 'round', strokeLinejoin: 'round' }
   switch (slug) {
-    case 'reality-distortion-field': return <svg {...p}><path d="M12 5l7 7-7 7-7-7z" /><circle cx="12" cy="12" r="2.5" fill={c} fillOpacity="0.15" /></svg>
+    case 'rdf': return <svg {...p}><path d="M12 5l7 7-7 7-7-7z" /><circle cx="12" cy="12" r="2.5" fill={c} fillOpacity="0.15" /></svg>
     case 'frame-control': return <svg {...p}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /></svg>
     case 'fearlessness': return <svg {...p}><path d="M12 2v16M8 6l4-4 4 4M7 22h10" /></svg>
     case 'aggression': return <svg {...p}><path d="M12 22c-2-3-8-7-8-13a8 8 0 0116 0c0 6-6 10-8 13z" /></svg>
@@ -304,7 +304,11 @@ export default function BadgeDetailSheet({
     if (postingMission) return
     setPostingMission(true)
     try {
-      const res = await fetch('/api/badge-missions/assign', { method: 'POST' })
+      const res = await fetch('/api/badge-missions/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
       if (!res.ok) throw new Error('Failed')
       await res.json()
       onMissionsAssigned?.()

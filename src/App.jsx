@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useTheme, getThemeVars } from './theme.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import MorningRoutine from './components/MorningRoutine.jsx'
 import BadgesTab from './components/BadgesTab.jsx'
@@ -13,6 +15,8 @@ import EpisodeBar from './components/EpisodeBar.jsx'
 import morningRoutine from './data/morningRoutine.js'
 import DevPanel from './components/DevPanel.jsx'
 import VFAffirmations from './components/VFAffirmations.jsx'
+import MentalOverviewTest from './components/MentalOverviewTest.jsx'
+import MentalFitnessTest from './components/MentalFitnessTest.jsx'
 import DayCountdownBar from './components/DayCountdownBar.jsx'
 import EpisodeOpen from './components/EpisodeOpen.jsx'
 import EpisodeClose from './components/EpisodeClose.jsx'
@@ -41,6 +45,7 @@ const loadJson = (key, fallback) => {
 }
 
 export default function App() {
+  const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState('home')
   const [episode, setEpisode] = useState(null)
   const dayEndedManually = useRef(false)
@@ -295,50 +300,89 @@ export default function App() {
   )
 
   return (
-    <div
-      className="flex h-dvh flex-col bg-black text-white"
-      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-    >
-      {/* Scrollable content area */}
-      <div className="mx-auto flex w-full max-w-[430px] min-h-0 flex-1 flex-col">
-        <EpisodeBar episode={episode} />
-        {dayActive && (
-          <DayCountdownBar
-            remainingMs={Math.max(dayRemainingMs, 0)}
-            onEndDay={handleEndDay}
-          />
-        )}
-        <main className="flex-1 min-h-0 flex flex-col">
-          {showEpisodeClose && episodeCloseData ? (
-            <EpisodeClose episode={episodeCloseData} onClose={doEndDay} />
-          ) : (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-                className="flex-1 min-h-0 flex flex-col"
-              >
-                {activeTab === 'home' && <HomeScreen />}
-                {activeTab === 'focus' && renderFocus()}
-                {activeTab === 'state' && <StateTab />}
-                {activeTab === 'mental' && <MentalGame />}
-                {activeTab === 'dopamine' && <DopamineTracker />}
-                {activeTab === 'badges' && <BadgesTab />}
-                {activeTab === 'stats' && <StatsTab />}
-                {activeTab === 'history' && <HistoryTab />}
-                {activeTab === 'vf' && <VFAffirmations />}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </main>
-      </div>
+    <Routes>
+      {/* Mental Fitness — its own full page at /mental-fitness */}
+      <Route path="/mental-fitness" element={
+        <MentalFitnessPage onNavigate={setActiveTab} />
+      } />
 
-      {/* Nav sits at the bottom of the flex column — no fixed positioning */}
-      <BottomNav activeTab={activeTab} onChange={setActiveTab} />
-      <DevPanel onNavigate={setActiveTab} />
+      {/* Everything else — existing tab system */}
+      <Route path="*" element={
+        <div
+          className="flex h-dvh flex-col"
+          style={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-body)',
+          }}
+        >
+          <div className="mx-auto flex w-full max-w-[430px] min-h-0 flex-1 flex-col">
+            <EpisodeBar episode={episode} />
+            {dayActive && (
+              <DayCountdownBar
+                remainingMs={Math.max(dayRemainingMs, 0)}
+                onEndDay={handleEndDay}
+              />
+            )}
+            <main className="flex-1 min-h-0 flex flex-col">
+              {showEpisodeClose && episodeCloseData ? (
+                <EpisodeClose episode={episodeCloseData} onClose={doEndDay} />
+              ) : (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                    className="flex-1 min-h-0 flex flex-col"
+                  >
+                    {activeTab === 'home' && <HomeScreen />}
+                    {activeTab === 'focus' && renderFocus()}
+                    {activeTab === 'state' && <StateTab />}
+                    {activeTab === 'mental' && <MentalGame />}
+                    {activeTab === 'dopamine' && <DopamineTracker />}
+                    {activeTab === 'badges' && <BadgesTab />}
+                    {activeTab === 'stats' && <StatsTab />}
+                    {activeTab === 'history' && <HistoryTab />}
+                    {activeTab === 'vf' && <VFAffirmations />}
+                    {activeTab === 'mental-overview' && <MentalOverviewTest />}
+                  </motion.div>
+                </AnimatePresence>
+              )}
+            </main>
+          </div>
+
+          <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+          <DevPanel onNavigate={setActiveTab} />
+        </div>
+      } />
+    </Routes>
+  )
+}
+
+// Mental Fitness full-page wrapper — scopes the MF-level theme locally
+function MentalFitnessPage({ onNavigate }) {
+  const navigate = useNavigate()
+  const { mfTheme } = useTheme()
+
+  return (
+    <div
+      className="flex h-dvh flex-col"
+      data-theme={mfTheme.special}
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        ...getThemeVars(mfTheme),
+        background: mfTheme.bg,
+        color: mfTheme.text,
+        fontFamily: mfTheme.fontBody,
+      }}
+    >
+      <div className="mx-auto flex w-full max-w-[430px] min-h-0 flex-1 flex-col">
+        <MentalFitnessTest onBack={() => navigate('/')} />
+      </div>
+      <DevPanel onNavigate={(tab) => { onNavigate(tab); navigate('/') }} />
     </div>
   )
 }

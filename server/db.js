@@ -496,6 +496,33 @@ const exerciseBadgeTx = database.transaction((progressUpdate, dailyExercise) => 
   badgeExerciseInsert.run(dailyExercise)
 })
 
+// Mental Fitness Sessions
+const mfSessionsGetAll = database.prepare('SELECT * FROM mf_sessions WHERE user_id = ? ORDER BY timestamp')
+const mfSessionInsert = database.prepare(`
+  INSERT INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier)
+  VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier)
+`)
+
+// Mental Fitness Custom Practices
+const mfCustomPracticesGetAll = database.prepare('SELECT * FROM mf_custom_practices WHERE user_id = ? ORDER BY created_at')
+const mfCustomPracticeInsert = database.prepare(`
+  INSERT INTO mf_custom_practices (id, user_id, name, primary_skill, secondary_skill, created_at)
+  VALUES (@id, @user_id, @name, @primary_skill, @secondary_skill, @created_at)
+`)
+
+const mfBulkImportTx = database.transaction((userId, sessions, customPractices) => {
+  const insertOrIgnore = database.prepare(`
+    INSERT OR IGNORE INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier)
+    VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier)
+  `)
+  const insertOrIgnorePractice = database.prepare(`
+    INSERT OR IGNORE INTO mf_custom_practices (id, user_id, name, primary_skill, secondary_skill, created_at)
+    VALUES (@id, @user_id, @name, @primary_skill, @secondary_skill, @created_at)
+  `)
+  for (const s of sessions) insertOrIgnore.run(s)
+  for (const p of customPractices) insertOrIgnorePractice.run(p)
+})
+
 // ─── Export ─────────────────────────────────────────────────────────────────
 
 const db = {
@@ -558,6 +585,9 @@ const db = {
     getByBadge: bossEncountersGetByBadge, getByCycleFaced: bossEncountersGetByCycleFaced
   },
 
+  mfSessions: { getAll: mfSessionsGetAll, insert: mfSessionInsert },
+  mfCustomPractices: { getAll: mfCustomPracticesGetAll, insert: mfCustomPracticeInsert },
+
   meta: { get: metaGet, upsert: metaUpsert },
   users: { getAll: usersGetAll, get: userGet, insert: userInsert },
   apiCalls: { insert: apiCallInsert, get: apiCallsGet, getByUser: apiCallsGetByUser },
@@ -571,7 +601,8 @@ const db = {
     logDopamineOverstim: logDopamineOverstimTx,
     assignMissions: assignMissionsTx,
     completeMission: completeMissionTx,
-    exerciseBadge: exerciseBadgeTx
+    exerciseBadge: exerciseBadgeTx,
+    mfBulkImport: mfBulkImportTx
   }
 }
 

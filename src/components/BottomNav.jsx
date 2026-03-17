@@ -60,7 +60,7 @@ const tabs = [
 
 export default function BottomNav({ activeTab, onChange }) {
   return (
-    <nav className="glass-bar border-t border-white/[0.04]">
+    <nav className="glass-bar" style={{ borderTop: '1px solid var(--nav-border)' }}>
       <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 py-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.id
@@ -76,16 +76,13 @@ export default function BottomNav({ activeTab, onChange }) {
               className="flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 outline-none"
             >
               <span
-                className={`transition-opacity duration-200 ${
-                  active ? 'opacity-100' : 'opacity-30'
-                }`}
+                style={{ opacity: active ? 1 : 0.3, color: active ? 'var(--accent)' : 'var(--text-muted)', transition: 'all 0.2s' }}
               >
                 <tab.Icon />
               </span>
               <span
-                className={`text-[10px] font-medium tracking-wide transition-colors duration-200 ${
-                  active ? 'text-white' : 'text-white/30'
-                }`}
+                className="text-[10px] font-medium tracking-wide transition-colors duration-200"
+                style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
               >
                 {tab.label}
               </span>

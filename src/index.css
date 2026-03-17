@@ -2,8 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme CSS Variables (defaults = Level 1 Awakened) ───────────────────── */
+
 :root {
   color-scheme: dark;
+
+  --bg-primary: #0e0e1a;
+  --bg-secondary: #151524;
+  --bg-card: rgba(135,206,235,0.07);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255,255,255,0.65);
+  --text-muted: rgba(255,255,255,0.30);
+  --accent: #87ceeb;
+  --accent-alt: #e85d8a;
+  --card-border: rgba(135,206,235,0.18);
+  --nav-bg: rgba(14,14,26,0.92);
+  --nav-border: rgba(135,206,235,0.12);
+  --font-body: 'Nunito', sans-serif;
+  --font-header: 'Fredoka One', 'Nunito', sans-serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --border-width: 2px;
+  --glass-bg: rgba(135,206,235,0.05);
+  --glass-border: rgba(135,206,235,0.10);
+  --glow: 0.12;
 }
 
 * {
@@ -17,14 +39,15 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #000000;
-  color: #ffffff;
-  font-family: 'Clash Grotesk', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
+  transition: background-color 0.6s ease, color 0.5s ease, font-family 0.3s ease;
 }
 
 #root {
@@ -37,30 +60,121 @@ a {
   font-family: inherit;
 }
 
-/* Glass surfaces */
+/* ── Glass surfaces (theme-aware) ─────────────────────────────────────────── */
+
 .glass {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg);
   backdrop-filter: blur(40px) saturate(120%);
   -webkit-backdrop-filter: blur(40px) saturate(120%);
 }
 
 .glass-bar {
-  background: rgba(18, 18, 20, 0.82);
+  background: var(--nav-bg);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--bg-card);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius);
 }
 
-/* Scrollbar */
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Safe area */
+/* ── Safe area ───────────────────────────────────────────────────────────── */
+
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ── Theme-specific effects ──────────────────────────────────────────────── */
+
+/* Level 1 — Anime: bouncy feel, bold outlines */
+[data-theme="anime"] .glass-card {
+  border-width: 2px;
+  border-color: rgba(135,206,235,0.20);
+}
+
+/* Level 2 — Film: grain texture overlay */
+[data-theme="film"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* Level 3 — Ink: hand-drawn feel */
+[data-theme="ink"] .glass-card {
+  border-style: solid;
+  border-color: rgba(140,130,121,0.12);
+  border-radius: 2px;
+}
+
+/* Level 4 — War Room: grain + bold top bars */
+[data-theme="war-room"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* Level 5 — Mountain: fog gradient dividers */
+[data-theme="mountain"] .glass-card {
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* Level 6 — Snow: barely-there UI, maximum negative space */
+[data-theme="snow"] .glass-card {
+  background: rgba(240,242,245,0.015);
+  border-color: rgba(107,125,142,0.04);
+}
+
+/* Level 7 — Knight: canvas texture + light/shadow */
+[data-theme="knight"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 192px 192px;
+}
+
+/* Level 8 — Cosmic: floating glass, inner glow, ethereal */
+[data-theme="cosmic"] .glass-card {
+  background: rgba(142,170,220,0.04);
+  border: 1px solid rgba(142,170,220,0.06);
+  box-shadow: inset 0 1px 12px rgba(142,170,220,0.04), 0 0 20px rgba(142,170,220,0.02);
+  border-radius: 16px;
+}
+
+/* ── Header font utility ─────────────────────────────────────────────────── */
+
+.font-header {
+  font-family: var(--font-header);
+}
+
+/* ── Theme-aware color utilities ──────────────────────────────────────────── */
+
+.text-themed        { color: var(--text-primary); }
+.text-themed-sec    { color: var(--text-secondary); }
+.text-themed-muted  { color: var(--text-muted); }
+.text-accent        { color: var(--accent); }
+.bg-themed          { background-color: var(--bg-primary); }
+.bg-themed-sec      { background-color: var(--bg-secondary); }
+.border-themed      { border-color: var(--card-border); }

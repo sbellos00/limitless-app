@@ -9,7 +9,7 @@ import db, { rowToApi, DEFAULT_USER_ID } from './db.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 
 // ─── Static reference data ────────────────────────────────────────────────────
 
@@ -19,6 +19,14 @@ const AFFIRMATIONS_DATA = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/
 
 app.use(cors())
 app.use(express.json())
+
+// Strip /api prefix so routes work in both dev (Vite proxy) and production (same server)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    req.url = req.url.replace(/^\/api/, '')
+  }
+  next()
+})
 
 // ─── User resolution middleware ───────────────────────────────────────────────
 
@@ -905,6 +913,128 @@ app.post('/fitmind-data', (req, res) => {
   res.json({ ok: true })
 })
 
+// ─── Mental Fitness Skill System ─────────────────────────────────────────────
+
+const MF_SESSION_FIELDS = ['id', 'timestamp', 'practiceId', 'practiceName', 'isCustom',
+  'primarySkill', 'secondarySkill', 'xpAwarded', 'baseXp', 'multiplier']
+
+const MF_CUSTOM_PRACTICE_FIELDS = ['id', 'name', 'primarySkill', 'secondarySkill', 'createdAt']
+
+app.get('/mf-sessions', (req, res) => {
+  const sessionRows = db.mfSessions.getAll.all(req.userId)
+  const practiceRows = db.mfCustomPractices.getAll.all(req.userId)
+
+  const sessions = sessionRows.map(r => ({
+    id: r.id,
+    timestamp: r.timestamp,
+    practiceId: r.practice_id,
+    practiceName: r.practice_name,
+    isCustom: !!r.is_custom,
+    primarySkill: r.primary_skill,
+    secondarySkill: r.secondary_skill,
+    xpAwarded: r.xp_awarded,
+    baseXp: r.base_xp,
+    multiplier: r.multiplier,
+  }))
+
+  const customPractices = practiceRows.map(r => ({
+    id: r.id,
+    name: r.name,
+    primarySkill: r.primary_skill,
+    secondarySkill: r.secondary_skill,
+    createdAt: r.created_at,
+  }))
+
+  res.json({ sessions, customPractices })
+})
+
+app.post('/mf-sessions', (req, res) => {
+  const allowed = pick(req.body, MF_SESSION_FIELDS)
+  if (!allowed.practiceId) return res.status(400).json({ error: 'practiceId required' })
+
+  const id = allowed.id || randomUUID()
+
+  try {
+    db.mfSessions.insert.run({
+      id,
+      user_id: req.userId,
+      timestamp: allowed.timestamp || nowIso(),
+      practice_id: allowed.practiceId,
+      practice_name: allowed.practiceName || allowed.practiceId,
+      is_custom: allowed.isCustom ? 1 : 0,
+      primary_skill: allowed.primarySkill || null,
+      secondary_skill: allowed.secondarySkill || null,
+      xp_awarded: allowed.xpAwarded || 0,
+      base_xp: allowed.baseXp ?? null,
+      multiplier: allowed.multiplier ?? null,
+    })
+    res.json({ ok: true, id })
+  } catch (e) {
+    if (e.message?.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Session already exists', id })
+    }
+    throw e
+  }
+})
+
+app.post('/mf-custom-practices', (req, res) => {
+  const allowed = pick(req.body, MF_CUSTOM_PRACTICE_FIELDS)
+  if (!allowed.name || !allowed.primarySkill) {
+    return res.status(400).json({ error: 'name and primarySkill required' })
+  }
+
+  const id = allowed.id || 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+
+  try {
+    db.mfCustomPractices.insert.run({
+      id,
+      user_id: req.userId,
+      name: allowed.name,
+      primary_skill: allowed.primarySkill,
+      secondary_skill: allowed.secondarySkill || null,
+      created_at: allowed.createdAt || nowIso(),
+    })
+    res.json({ ok: true, id })
+  } catch (e) {
+    if (e.message?.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Practice already exists', id })
+    }
+    throw e
+  }
+})
+
+app.post('/mf-sessions/bulk', (req, res) => {
+  const { sessions, customPractices } = req.body
+  if (!Array.isArray(sessions)) return res.status(400).json({ error: 'sessions array required' })
+
+  const dbSessions = sessions.map(s => ({
+    id: s.id || randomUUID(),
+    user_id: req.userId,
+    timestamp: s.timestamp || nowIso(),
+    practice_id: s.practiceId || 'unknown',
+    practice_name: s.practiceName || s.practiceId || 'unknown',
+    is_custom: s.isCustom ? 1 : 0,
+    primary_skill: s.primarySkill || null,
+    secondary_skill: s.secondarySkill || null,
+    xp_awarded: s.xpAwarded || 0,
+    base_xp: s.baseXp ?? null,
+    multiplier: s.multiplier ?? null,
+  }))
+
+  const dbPractices = (customPractices || []).map(p => ({
+    id: p.id || 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    user_id: req.userId,
+    name: p.name,
+    primary_skill: p.primarySkill,
+    secondary_skill: p.secondarySkill || null,
+    created_at: p.createdAt || nowIso(),
+  }))
+
+  db.transactions.mfBulkImport(req.userId, dbSessions, dbPractices)
+
+  res.json({ ok: true, imported: { sessions: dbSessions.length, customPractices: dbPractices.length } })
+})
+
 // ─── POST /morning-state ─────────────────────────────────────────────────────
 
 const MORNING_STATE_FIELDS = ['energyScore', 'mentalClarity', 'emotionalState', 'insights',
@@ -1322,7 +1452,7 @@ app.post('/badge-progress/exercise', (req, res) => {
 // ─── POST /badge-missions/assign ─────────────────────────────────────────────
 
 app.post('/badge-missions/assign', (req, res) => {
-  const { badgeSlugs } = req.body
+  const { badgeSlugs } = req.body || {}
   const cycleId = getOrCreateCycleId(req.userId)
   const uid = req.userId
 
@@ -2075,6 +2205,19 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (err) => {
   console.error(`[${nowIso()}] UNHANDLED REJECTION:`, err)
 })
+
+// ─── Production static serving ───────────────────────────────────────────────
+
+const distPath = path.join(__dirname, '..', 'dist')
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath))
+  // SPA fallback — serve index.html for non-API, non-file routes
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next()
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+  console.log(`  Serving frontend from dist/`)
+}
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 
