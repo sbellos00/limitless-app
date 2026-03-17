@@ -148,10 +148,8 @@ rdf, frame-control, fearlessness, aggression, carefreeness, presence, bias-to-ac
 
 | File | What |
 |------|------|
-| DOCS.md | Full system documentation (architecture, agents, day flow, all endpoints) |
-| MANUAL.md | User-facing how-to guide |
-| PLAN.md | Dev roadmap + open questions |
-| DEPLOY.md | Zero-to-running deployment guide |
-| server/DATA_SCHEMA.md | API response shapes (camelCase JSON — still accurate) |
+| docs/ARCHITECTURE.md | System architecture, stack, conventions, repo structure |
+| docs/MENTAL-FITNESS.md | Mental fitness skill system — skills, XP, themes, API |
+| docs/DEPLOY.md | Zero-to-running deployment guide (local + Railway) |
 | server/schema.sql | SQLite schema (snake_case, source of truth for DB structure) |
-| server/SQLITE_MIGRATION.md | Original migration plan (historical reference) |
+| docs/archive/ | Historical docs (DOCS.md, MANUAL.md, PLAN.md, migration docs) |

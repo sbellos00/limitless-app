@@ -31,7 +31,10 @@
       "Bash(curl -s http://localhost:3001/mf-sessions)",
       "Bash(curl -s http://localhost:3002/api/mf-sessions)",
       "Bash(bash scripts/test-mf.sh)",
-      "Bash(railway whoami:*)"
+      "Bash(railway whoami:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
