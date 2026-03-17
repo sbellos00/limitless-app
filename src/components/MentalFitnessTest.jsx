@@ -21,7 +21,7 @@ import {
   CATEGORIES, SKILLS, ALL_SKILL_IDS, PRACTICES, PRACTICE_PHASES, PRACTICE_MAP,
   XP_PRESETS, CHECKIN_XP, PRIMARY_XP_RATIO, SECONDARY_XP_RATIO,
   PSYCHEDELIC_MULTIPLIER, STREAK_BONUSES, getStreakMultiplier, getStreakLabel,
-  SKILL_TIERS, getSkillTier, getSkillTierProgress, getSkillRating,
+  SKILL_TIERS, getSkillTier, getSkillTierProgress, getSkillRating, getOverallRating,
   applySkillDecay, computeSkillXp, computeCategoryXp, getTotalXp,
 } from '../data/mental-fitness.js'
 
@@ -832,7 +832,7 @@ function TrainScreen({ data, stats, onLog, onLogPsychedelic, onCheckIn, theme })
 
 function SkillBreakdown({ skillXp, theme }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {CATEGORIES.map(cat => (
         cat.skills.map(sk => {
           const xp = skillXp[sk] || 0
@@ -841,22 +841,22 @@ function SkillBreakdown({ skillXp, theme }) {
           const barPct = ((rating - 1) / 98) * 100
 
           return (
-            <div key={sk} className="flex items-center gap-2">
+            <div key={sk} className="flex items-center gap-2.5">
               {/* Category dot */}
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cat.color, opacity: 0.6 }} />
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color, opacity: 0.6 }} />
               {/* Skill name */}
-              <span className="text-[10px] flex-1 min-w-0 truncate"
+              <span className="text-[12px] flex-1 min-w-0 truncate"
                 style={{ color: xp > 0 ? theme?.textSecondary : theme?.textMuted, fontFamily: theme?.fontBody }}>
                 {SKILLS[sk].name}
               </span>
               {/* Rating bar */}
-              <div className="w-[60px] h-[4px] rounded-full overflow-hidden shrink-0"
+              <div className="w-[64px] h-[5px] rounded-full overflow-hidden shrink-0"
                 style={{ background: `${cat.color}12` }}>
                 <div className="h-full rounded-full transition-all"
                   style={{ width: `${barPct}%`, background: tier.color, opacity: 0.7 }} />
               </div>
               {/* Rating number */}
-              <span className="text-[12px] font-bold tabular-nums w-[22px] text-right shrink-0"
+              <span className="text-[14px] font-bold tabular-nums w-[24px] text-right shrink-0"
                 style={{ color: tier.color, fontFamily: theme?.fontHeader }}>
                 {rating}
               </span>
@@ -958,13 +958,39 @@ function DisciplineBar({ phase, practiceCounts, sessions, theme, color }) {
 // ── Stats Screen ─────────────────────────────────────────────────────────────
 
 function StatsScreen({ sessions, stats, theme }) {
-  const { level, totalXp, practiceCounts, phaseStats, streak, skillXp, categoryXp } = stats
+  const { level, totalXp, practiceCounts, phaseStats, streak, uniquePractices, skillXp, categoryXp } = stats
   const special = theme?.special || 'anime'
+  const overall = getOverallRating(skillXp)
+  const overallTier = getSkillTier(0) // just for color — use rating-based color
+  const overallColor = overall >= 90 ? '#B9F2FF' : overall >= 60 ? '#EF4444' : overall >= 35 ? '#FBBF24' : overall >= 15 ? '#34D399' : overall >= 5 ? '#60A5FA' : 'rgba(255,255,255,0.3)'
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
       <div className={`${special === 'snow' ? 'px-6 py-8 space-y-6' : 'px-4 py-5 space-y-5'}`}>
-        <LevelSectionHeader special={special} color={level.color} label="Progress" title="Statistics" theme={theme} />
+        <div className="flex items-center justify-between">
+          <LevelSectionHeader special={special} color={level.color} label="Progress" title="Statistics" theme={theme} />
+          <div className="text-right mt-2">
+            <span className="text-[24px] font-black tabular-nums" style={{ color: overallColor, fontFamily: theme?.fontHeader }}>{overall}</span>
+            <p className="text-[7px] uppercase tracking-widest" style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>Overall</p>
+          </div>
+        </div>
+
+        {/* Summary metrics — single subtle line */}
+        <div className="flex items-center justify-between" style={{ opacity: 0.8 }}>
+          {[
+            { label: 'Sessions', value: sessions.length },
+            { label: 'XP', value: totalXp.toLocaleString() },
+            { label: 'Streak', value: streak > 0 ? `${streak}d` : '\u2014' },
+            { label: 'Tried', value: `${uniquePractices}/${TOTAL_PRACTICES}` },
+          ].map(s => (
+            <div key={s.label} className="text-center">
+              <span className="text-[12px] font-semibold block tabular-nums"
+                style={{ color: theme?.textSecondary, fontFamily: theme?.fontHeader }}>{s.value}</span>
+              <span className="text-[8px] uppercase tracking-widest"
+                style={{ color: theme?.textSecondary, fontFamily: theme?.fontBody }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
 
         {/* Brain Map */}
         <BrainMap phaseStats={phaseStats} practiceCounts={practiceCounts} streak={streak}

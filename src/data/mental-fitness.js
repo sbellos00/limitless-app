@@ -136,6 +136,15 @@ export function getSkillRating(xp) {
   return 99
 }
 
+// ─── Overall Rating (RMS) ───────────────────────────────────────────────────
+// Root mean square of all skill ratings. Amplifies peaks — rewards mastery.
+
+export function getOverallRating(skillXp) {
+  const ratings = ALL_SKILL_IDS.map(sk => getSkillRating(skillXp[sk] || 0))
+  const sumSq = ratings.reduce((s, r) => s + r * r, 0)
+  return Math.round(Math.sqrt(sumSq / ratings.length))
+}
+
 // ─── Skill Decay ────────────────────────────────────────────────────────────
 // Skills lose XP if not practiced for extended periods.
 // Decay starts after 14 days of no session on that skill.

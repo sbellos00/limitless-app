@@ -189,7 +189,7 @@ function PowerReadout({ label, value, max, color = ACCENT, theme }) {
 function AnimeBellCurve({ sessions, level, totalXp, theme }) {
   if (!sessions.length) return null
 
-  const MEAN = 0, SIGMA = 3000
+  const MEAN = 0, SIGMA = 10000
   const Z_MIN = -3, Z_MAX = 3, STEPS = 120
   const phi = (z) => Math.exp(-0.5 * z * z)
   const userZ = Math.max(Z_MIN, Math.min(Z_MAX, (totalXp - MEAN) / SIGMA))
