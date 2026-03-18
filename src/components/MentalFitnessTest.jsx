@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { sounds } from '../utils/sounds.js'
 import { haptics } from '../utils/haptics.js'
 import { THEME_LEVELS, getThemeForXp, useTheme } from '../theme.jsx'
@@ -1067,8 +1067,16 @@ function StatsScreen({ sessions, stats, theme }) {
 
 // ── Bottom Nav ──────────────────────────────────────────────────────────────
 
+const AGENT_BOTS = {
+  '00000000-0000-0000-0000-000000000001': 'https://t.me/MorpheusLimitlessBot',
+  '00000000-0000-0000-0000-000000000002': 'https://t.me/MoreMorpheusBotBot',
+}
+
 function MFBottomNav({ screen, onNavigate, onLogout, color, theme }) {
   const special = theme?.special || 'anime'
+  const userId = getCurrentUserId()
+  const botUrl = AGENT_BOTS[userId]
+
   const tabs = [
     { id: 'overview', label: 'Home',
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -1103,23 +1111,42 @@ function MFBottomNav({ screen, onNavigate, onLogout, color, theme }) {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme?.textMuted || 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span className="text-[8px] uppercase tracking-widest" style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>Exit</span>
       </button>
-      {tabs.map(t => {
+      {tabs.map((t, i) => {
         const active = screen === t.id
         return (
-          <button
-            key={t.id}
-            onClick={() => { haptics.tap(); onNavigate(t.id) }}
-            className="flex-1 py-3 flex flex-col items-center gap-1 relative"
-          >
-            <span style={{ color: active ? color : (theme?.textMuted || 'rgba(255,255,255,0.2)') }}>
-              {t.icon}
-            </span>
-            <span className="text-[8px] uppercase tracking-widest"
-              style={{ color: active ? color : (theme?.textMuted || 'rgba(255,255,255,0.15)'), opacity: active ? 0.9 : 0.6, fontFamily: theme?.fontBody }}>
-              {t.label}
-            </span>
-            {active && indicator()}
-          </button>
+          <React.Fragment key={t.id}>
+            <button
+              onClick={() => { haptics.tap(); onNavigate(t.id) }}
+              className="flex-1 py-3 flex flex-col items-center gap-1 relative"
+            >
+              <span style={{ color: active ? color : (theme?.textMuted || 'rgba(255,255,255,0.2)') }}>
+                {t.icon}
+              </span>
+              <span className="text-[8px] uppercase tracking-widest"
+                style={{ color: active ? color : (theme?.textMuted || 'rgba(255,255,255,0.15)'), opacity: active ? 0.9 : 0.6, fontFamily: theme?.fontBody }}>
+                {t.label}
+              </span>
+              {active && indicator()}
+            </button>
+            {/* "New" button between Home and Train */}
+            {i === 0 && botUrl && (
+              <a
+                href={botUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => haptics.tap()}
+                className="flex-1 py-3 flex flex-col items-center gap-1 relative"
+              >
+                <span style={{ color }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </span>
+                <span className="text-[8px] uppercase tracking-widest"
+                  style={{ color, opacity: 0.9, fontFamily: theme?.fontBody }}>
+                  New
+                </span>
+              </a>
+            )}
+          </React.Fragment>
         )
       })}
     </div>
