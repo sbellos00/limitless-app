@@ -692,7 +692,7 @@ function OverviewScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
               { label: 'Sessions', value: sessionCount },
               { label: 'Streak', value: streak > 0 ? `${streak}d` : '\u2014' },
               { label: 'XP', value: totalXp.toLocaleString() },
-              { label: 'Tried', value: `${uniquePractices}/${TOTAL_PRACTICES}` },
+              { label: 'Tried', value: uniquePractices },
             ]} />
           </div>
         </LevelCard>
@@ -718,31 +718,6 @@ function OverviewScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
         <CheckInButtons theme={theme} color={level.color} onCheckIn={onCheckIn} />
       </div>
 
-      <LevelDivider special={special} color={level.color} />
-
-      {/* Dev: Level Presets */}
-      <div className={`${special === 'snow' ? 'px-6 pb-8' : 'px-4 pb-6'}`}>
-        <p className="text-[8px] uppercase tracking-widest mb-2 text-center" style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>Preview Level</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {LEVELS.map((lvl, i) => (
-            <button
-              key={lvl.name}
-              onClick={() => onSeed(i)}
-              className="py-2 text-[8px] font-medium transition-all"
-              style={{
-                background: level.idx === i ? `${lvl.color}18` : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${level.idx === i ? lvl.color + '30' : 'rgba(255,255,255,0.04)'}`,
-                borderRadius: theme?.radiusSm || '12px',
-                color: lvl.color,
-                opacity: level.idx === i ? 1 : 0.45,
-                fontFamily: theme?.fontBody,
-              }}
-            >
-              {lvl.short}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
@@ -1006,7 +981,7 @@ function StatsScreen({ sessions, stats, theme }) {
             { label: 'Sessions', value: sessionCount },
             { label: 'XP', value: totalXp.toLocaleString() },
             { label: 'Streak', value: streak > 0 ? `${streak}d` : '\u2014' },
-            { label: 'Tried', value: `${uniquePractices}/${TOTAL_PRACTICES}` },
+            { label: 'Tried', value: uniquePractices },
           ].map(s => (
             <div key={s.label} className="text-center">
               <span className="text-[12px] font-semibold block tabular-nums"

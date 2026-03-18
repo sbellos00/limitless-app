@@ -55,7 +55,7 @@ export const THEME_LEVELS = [
     glassBorder:  'rgba(201,123,58,0.08)',
     glow:         0.10,
     grain:        true,
-    special:      'film',       // grain texture overlays, compact centered layouts
+    special:      'ink',        // Matrix-style tactical HUD
   },
 
   // Level 3 — Adept — Matrix: Combat (Neo ready to fight)
