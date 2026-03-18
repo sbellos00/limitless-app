@@ -2289,6 +2289,36 @@ app.post('/users', (req, res) => {
   res.json({ ok: true, id, name })
 })
 
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+const JOHN_USER_ID = '00000000-0000-0000-0000-000000000002'
+
+// Seed John if not exists
+try { db.users.insert.run(JOHN_USER_ID, 'john', nowIso()) } catch {}
+
+const USER_PASSWORDS = {
+  [DEFAULT_USER_ID]: '240400',  // Stef
+  [JOHN_USER_ID]: '694742',     // John
+}
+
+app.get('/auth/users', (req, res) => {
+  const users = Object.keys(USER_PASSWORDS).map(id => {
+    const row = db.users.get.get(id)
+    return row ? { id: row.id, name: row.name } : null
+  }).filter(Boolean)
+  res.json(users)
+})
+
+app.post('/auth/verify', (req, res) => {
+  const { userId, password } = req.body
+  if (!userId || !password) return res.status(400).json({ error: 'userId and password required' })
+  const expected = USER_PASSWORDS[userId]
+  if (!expected) return res.status(401).json({ error: 'Unknown user' })
+  if (password !== expected) return res.status(401).json({ error: 'Invalid password' })
+  const user = db.users.get.get(userId)
+  res.json({ ok: true, userId, name: user?.name || 'Unknown' })
+})
+
 app.get('/api-calls', (req, res) => {
   const { limit, user } = req.query
   const n = parseInt(limit, 10) || 100

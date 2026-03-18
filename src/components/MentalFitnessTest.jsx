@@ -122,6 +122,15 @@ function migrateSession(s) {
   }
 }
 
+import { getCurrentUserId } from './MFApp.jsx'
+
+function userHeaders() {
+  const uid = getCurrentUserId()
+  const h = { 'Content-Type': 'application/json' }
+  if (uid) h['X-User-Id'] = uid
+  return h
+}
+
 function cacheMfXp(sessions) {
   const xp = sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
   localStorage.setItem('limitless_mf_xp', String(xp))
@@ -130,7 +139,7 @@ function cacheMfXp(sessions) {
 
 async function fetchMfData() {
   try {
-    const res = await fetch('/api/mf-sessions')
+    const res = await fetch('/api/mf-sessions', { headers: userHeaders() })
     if (!res.ok) throw new Error('Failed to load')
     const data = await res.json()
     data.sessions = (data.sessions || []).filter(s => s.practiceId).map(migrateSession)
@@ -144,7 +153,7 @@ async function fetchMfData() {
 async function postSession(session) {
   await fetch('/api/mf-sessions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: userHeaders(),
     body: JSON.stringify(session),
   })
 }
@@ -152,7 +161,7 @@ async function postSession(session) {
 async function postCustomPractice(practice) {
   await fetch('/api/mf-custom-practices', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: userHeaders(),
     body: JSON.stringify(practice),
   })
 }
@@ -1037,7 +1046,7 @@ function StatsScreen({ sessions, stats, theme }) {
 
 // ── Bottom Nav ──────────────────────────────────────────────────────────────
 
-function MFBottomNav({ screen, onNavigate, onBack, color, theme }) {
+function MFBottomNav({ screen, onNavigate, onLogout, color, theme }) {
   const special = theme?.special || 'anime'
   const tabs = [
     { id: 'overview', label: 'Home',
@@ -1067,11 +1076,11 @@ function MFBottomNav({ screen, onNavigate, onBack, color, theme }) {
   return (
     <div className="shrink-0 flex relative" style={navStyle}>
       <button
-        onClick={() => { haptics.tap(); onBack() }}
+        onClick={() => { haptics.tap(); onLogout?.() }}
         className="flex flex-col items-center justify-center gap-1 px-4 py-3"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme?.textMuted || 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-        <span className="text-[8px] uppercase tracking-widest" style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>Back</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme?.textMuted || 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span className="text-[8px] uppercase tracking-widest" style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>Exit</span>
       </button>
       {tabs.map(t => {
         const active = screen === t.id
@@ -1551,7 +1560,7 @@ export {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-export default function MentalFitnessTest({ onBack }) {
+export default function MentalFitnessTest({ onLogout }) {
   const { setMfXp } = useTheme()
   const [screen, setScreen] = useState('overview')
   const [logging, setLogging] = useState(false)       // false | 'normal' | 'psychedelic'
@@ -1578,7 +1587,7 @@ export default function MentalFitnessTest({ onBack }) {
             if (lsSessions.length > 0) {
               await fetch('/api/mf-sessions/bulk', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: userHeaders(),
                 body: JSON.stringify({ sessions: lsSessions, customPractices: lsCustom }),
               })
               const migrated = await fetchMfData()
@@ -1635,7 +1644,7 @@ export default function MentalFitnessTest({ onBack }) {
     try {
       await fetch('/api/mf-sessions/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: userHeaders(),
         body: JSON.stringify(seed),
       })
     } catch (e) {
@@ -1774,7 +1783,7 @@ export default function MentalFitnessTest({ onBack }) {
         )}
       </AnimatePresence>
 
-      <MFBottomNav screen={screen} onNavigate={setScreen} onBack={onBack} color={level.color} theme={theme} />
+      <MFBottomNav screen={screen} onNavigate={setScreen} onLogout={onLogout} color={level.color} theme={theme} />
     </div>
   )
 }
