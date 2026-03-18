@@ -501,6 +501,8 @@ const exerciseBadgeTx = database.transaction((progressUpdate, dailyExercise) => 
 
 // Mental Fitness Sessions
 const mfSessionsGetAll = database.prepare('SELECT * FROM mf_sessions WHERE user_id = ? ORDER BY timestamp')
+const mfSessionDelete = database.prepare('DELETE FROM mf_sessions WHERE user_id = ? AND id = ?')
+const mfSessionDeleteByPrefix = database.prepare('DELETE FROM mf_sessions WHERE user_id = ? AND id LIKE ?')
 const mfSessionInsert = database.prepare(`
   INSERT INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier, skill_splits)
   VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier, @skill_splits)
@@ -588,7 +590,7 @@ const db = {
     getByBadge: bossEncountersGetByBadge, getByCycleFaced: bossEncountersGetByCycleFaced
   },
 
-  mfSessions: { getAll: mfSessionsGetAll, insert: mfSessionInsert },
+  mfSessions: { getAll: mfSessionsGetAll, insert: mfSessionInsert, delete: mfSessionDelete, deleteByPrefix: mfSessionDeleteByPrefix },
   mfCustomPractices: { getAll: mfCustomPracticesGetAll, insert: mfCustomPracticeInsert },
 
   meta: { get: metaGet, upsert: metaUpsert },
