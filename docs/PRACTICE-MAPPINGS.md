@@ -251,6 +251,20 @@ Each practice has a primary skill (80% XP) and optional secondary skill (20% XP)
 | Coming Alive | `coming-alive` | body-awareness | blissful-presence |
 | Walking Meditation | `walking-meditation` | body-awareness | meta-awareness |
 
+## Manifestation
+
+These practices use custom XP splits (up to 3 skills) instead of the standard 80/20.
+
+| Name | ID | Skill 1 | Skill 2 | Skill 3 |
+|------|----|---------|---------|---------|
+| Quantum Shift | `quantum-shift` | visualization 33% | inner-exploration 33% | subconscious-programming 33% |
+| Dream Life (OG) | `dream-life-og` | visualization 40% | inner-exploration 40% | emotional-awareness 20% |
+| Instant Alignment | `instant-alignment` | blissful-presence 80% | subconscious-programming 20% | — |
+| Forest Visualization | `forest-visualization` | visualization 50% | inner-exploration 20% | transcendence 30% |
+| Dream Life (Gratitude) | `dream-life-gratitude` | visualization 40% | inner-exploration 40% | blissful-presence 20% |
+| Attract Abundance | `attract-abundance` | subconscious-programming 100% | — | — |
+| Hypnosis | `hypnosis` | subconscious-programming 50% | visualization 30% | transcendence 20% |
+
 ## Timer (Self-Guided)
 
 Default primary is inner-exploration or focused-attention (user chooses). 45+ min sessions get mental-endurance as primary instead.
