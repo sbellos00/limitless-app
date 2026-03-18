@@ -2,12 +2,12 @@ import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
 const IMAGES = [
-  '/LimitlessPreloader/Neo.jpg',
-  '/LimitlessPreloader/KobeFlinch.jpg',
-  '/LimitlessPreloader/Lucy.jpg',
-  '/LimitlessPreloader/TonyStark.jpg',
-  '/LimitlessPreloader/WolfOfWalletSt.jpg',
-  '/LimitlessPreloader/LimitlessLaptop.jpg',
+  '/LimitlessNewPreloader/Neo.jpg',
+  '/LimitlessNewPreloader/KobeFlinch.jpg',
+  '/LimitlessNewPreloader/Lucy.jpg',
+  '/LimitlessNewPreloader/TonyStark.jpg',
+  '/LimitlessNewPreloader/LimitlessLaptop.jpg',
+  '/LimitlessNewPreloader/Limitless.jpg',
 ]
 
 export default function MFPreloader() {
@@ -29,7 +29,7 @@ export default function MFPreloader() {
             key={src}
             src={src}
             alt=""
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover"
             initial={false}
             animate={{ opacity: i === imgIdx ? 0.4 : 0 }}
             transition={{ duration: 0.3 }}
