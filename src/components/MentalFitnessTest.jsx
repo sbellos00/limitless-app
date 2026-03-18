@@ -124,10 +124,13 @@ function migrateSession(s) {
 
 import { getCurrentUserId } from './MFApp.jsx'
 
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
 function userHeaders() {
   const uid = getCurrentUserId()
   const h = { 'Content-Type': 'application/json' }
   if (uid) h['X-User-Id'] = uid
+  if (API_KEY) h['X-API-Key'] = API_KEY
   return h
 }
 

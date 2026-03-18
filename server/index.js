@@ -28,6 +28,24 @@ app.use((req, res, next) => {
   next()
 })
 
+// ─── API Key authentication ──────────────────────────────────────────────────
+
+const API_KEY = process.env.API_KEY
+if (API_KEY) {
+  app.use((req, res, next) => {
+    // Skip auth for static files (no dot = likely an API route)
+    if (req.path.includes('.') || req.path === '/') return next()
+    const key = req.headers['x-api-key']
+    if (key !== API_KEY) {
+      return res.status(401).json({ error: 'Invalid or missing API key' })
+    }
+    next()
+  })
+  console.log('  API key:    required')
+} else {
+  console.log('  API key:    not set (open access)')
+}
+
 // ─── User resolution middleware ───────────────────────────────────────────────
 
 app.use((req, res, next) => {

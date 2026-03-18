@@ -2,6 +2,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const FONT = "'Bebas Neue', sans-serif"
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
+function apiHeaders(extra = {}) {
+  const h = { 'Content-Type': 'application/json', ...extra }
+  if (API_KEY) h['X-API-Key'] = API_KEY
+  return h
+}
 
 const AVATARS = {
   stef: '/LimitlessPreloader/Neo.jpg',
@@ -17,7 +24,7 @@ export default function MFUserSelect({ onAuth }) {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    fetch('/api/auth/users')
+    fetch('/api/auth/users', { headers: apiHeaders() })
       .then(r => r.json())
       .then(setUsers)
       .catch(() => {})
@@ -45,7 +52,7 @@ export default function MFUserSelect({ onAuth }) {
     try {
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify({ userId: selected.id, password }),
       })
       const data = await res.json()
