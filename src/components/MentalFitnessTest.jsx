@@ -599,27 +599,66 @@ const DEPTH_LEVELS = [
   { value: 3, kanji: '深', label: 'Deep' },
 ]
 
-function CheckInButtons({ theme, color, onCheckIn }) {
+const CHECKIN_COOLDOWN_MS = 30 * 60 * 1000 // 30 minutes
+
+function getCheckinCooldowns(sessions) {
+  const now = Date.now()
+  const cooldowns = {}
+  for (const ci of CHECK_INS) {
+    const pid = `checkin-${ci.id}`
+    const last = sessions.filter(s => s.practiceId === pid).sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]
+    if (last) {
+      const elapsed = now - new Date(last.timestamp).getTime()
+      const remaining = CHECKIN_COOLDOWN_MS - elapsed
+      cooldowns[ci.id] = remaining > 0 ? remaining : 0
+    } else {
+      cooldowns[ci.id] = 0
+    }
+  }
+  return cooldowns
+}
+
+function formatCooldown(ms) {
+  const min = Math.ceil(ms / 60000)
+  return `${min}m`
+}
+
+function CheckInButtons({ theme, color, onCheckIn, sessions }) {
   const special = theme?.special || 'anime'
   const radius = special === 'war-room' ? '0px' : special === 'ink' ? '4px' : special === 'snow' ? '8px' : theme?.radiusSm || '12px'
+  const [cooldowns, setCooldowns] = useState(() => getCheckinCooldowns(sessions || []))
+
+  // Refresh cooldowns every 15s
+  useEffect(() => {
+    setCooldowns(getCheckinCooldowns(sessions || []))
+    const interval = setInterval(() => setCooldowns(getCheckinCooldowns(sessions || [])), 15000)
+    return () => clearInterval(interval)
+  }, [sessions])
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      {CHECK_INS.map(ci => (
-        <button
-          key={ci.id}
-          onClick={() => { haptics.tap(); onCheckIn?.(ci) }}
-          className="flex items-center gap-2.5 px-3 py-3 text-left transition-all active:scale-[0.97]"
-          style={{
-            background: `${color}06`,
-            border: `1px solid ${color}0C`,
-            borderRadius: radius,
-            fontFamily: theme?.fontBody,
-          }}
-        >
-          <span className="text-[11px] leading-tight" style={{ color: theme?.textSecondary }}>{ci.label}</span>
-        </button>
-      ))}
+      {CHECK_INS.map(ci => {
+        const onCooldown = cooldowns[ci.id] > 0
+        return (
+          <button
+            key={ci.id}
+            onClick={() => { if (!onCooldown) { haptics.tap(); onCheckIn?.(ci) } }}
+            disabled={onCooldown}
+            className="flex items-center gap-2.5 px-3 py-3 text-left transition-all active:scale-[0.97]"
+            style={{
+              background: `${color}${onCooldown ? '03' : '06'}`,
+              border: `1px solid ${color}${onCooldown ? '06' : '0C'}`,
+              borderRadius: radius,
+              fontFamily: theme?.fontBody,
+              opacity: onCooldown ? 0.4 : 1,
+            }}
+          >
+            <span className="text-[11px] leading-tight" style={{ color: theme?.textSecondary }}>
+              {onCooldown ? `${ci.label} (${formatCooldown(cooldowns[ci.id])})` : ci.label}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -715,7 +754,7 @@ function OverviewScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
           style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>
           Quick Check-Ins
         </p>
-        <CheckInButtons theme={theme} color={level.color} onCheckIn={onCheckIn} />
+        <CheckInButtons theme={theme} color={level.color} onCheckIn={onCheckIn} sessions={sessions} />
       </div>
 
     </div>
@@ -781,7 +820,7 @@ function TrainScreen({ data, stats, onLog, onLogPsychedelic, onCheckIn, theme })
             style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>
             Check-Ins
           </p>
-          <CheckInButtons theme={theme} color={level.color} onCheckIn={onCheckIn} />
+          <CheckInButtons theme={theme} color={level.color} onCheckIn={onCheckIn} sessions={sessions} />
         </div>
 
         <LevelDivider special={special} color={level.color} />
