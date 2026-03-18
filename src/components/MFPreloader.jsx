@@ -29,7 +29,7 @@ export default function MFPreloader() {
             key={src}
             src={src}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-contain"
             initial={false}
             animate={{ opacity: i === imgIdx ? 0.4 : 0 }}
             transition={{ duration: 0.3 }}
