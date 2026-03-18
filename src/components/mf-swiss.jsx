@@ -430,7 +430,7 @@ export function SwissHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
               { value: totalXp.toLocaleString(), label: 'XP' },
               { value: sessions.length, label: 'Sessions' },
               { value: streak > 0 ? `${streak}d` : '—', label: 'Streak' },
-              { value: `${uniquePractices}/${TOTAL_PRACTICES}`, label: 'Tried' },
+              { value: uniquePractices, label: 'Tried' },
             ].map(d => (
               <div key={d.label}>
                 <p className="text-[24px] font-semibold tabular-nums leading-none"
@@ -521,24 +521,6 @@ export function SwissHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
 
         <Rule />
 
-        {/* Dev: Level Presets */}
-        <div className="py-5 pb-8">
-          <SectionLabel label="Preview" theme={theme} />
-          <div className="flex gap-1 mt-2">
-            {LEVELS.map((lvl, i) => (
-              <button key={lvl.name} onClick={() => onSeed(i)}
-                className="flex-1 py-2 text-[8px] font-medium uppercase tracking-wider transition-all"
-                style={{
-                  background: level.idx === i ? 'rgba(255,255,255,0.06)' : 'transparent',
-                  border: `1px solid ${level.idx === i ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)'}`,
-                  color: level.idx === i ? (theme?.text) : (theme?.textMuted),
-                  fontFamily: theme?.fontBody,
-                }}>
-                {lvl.short}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

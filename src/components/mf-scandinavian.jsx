@@ -852,7 +852,7 @@ export function ScandinavianHomeScreen({ sessions, stats, onSeed, onCheckIn, the
               <SourceLine label="XP" value={totalXp.toLocaleString()} delay={0.15} />
               <SourceLine label="SESSIONS" value={sessions.length} delay={0.20} />
               <SourceLine label="STREAK" value={streak > 0 ? `${streak} days` : '\u2014'} delay={0.25} />
-              <SourceLine label="PRACTICES" value={`${uniquePractices} / ${TOTAL_PRACTICES}`} delay={0.30} />
+              <SourceLine label="PRACTICES" value={`${uniquePractices}`} delay={0.30} />
             </div>
           </GoldCard>
         </div>
@@ -976,37 +976,6 @@ export function ScandinavianHomeScreen({ sessions, stats, onSeed, onCheckIn, the
           </div>
         </div>
 
-        <div style={{ height: 28 }} />
-
-        {/* Dev level presets */}
-        <div style={{ padding: '0 20px', paddingBottom: 48 }}>
-          <p style={{
-            color: TEXT_M,
-            fontSize: 9,
-            fontFamily: FONT,
-            letterSpacing: '0.12em',
-            marginBottom: 10,
-            textAlign: 'center',
-          }}>
-            // PREVIEW
-          </p>
-          <div className="flex justify-center flex-wrap" style={{ gap: 4 }}>
-            {LEVELS.map((lvl, i) => (
-              <GoldButton
-                key={lvl.name}
-                onClick={() => onSeed(i)}
-                active={level.idx === i}
-                style={{
-                  padding: '8px 10px',
-                  fontSize: 9,
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {lvl.short}
-              </GoldButton>
-            ))}
-          </div>
-        </div>
 
       </div>
     </div>

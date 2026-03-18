@@ -34,7 +34,14 @@
       "Bash(railway whoami:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -s https://limitless-app-production.up.railway.app/mf-stats -H \"X-User-Id: 00000000-0000-0000-0000-000000000001\")",
+      "Bash(curl -s https://limitless-app-production.up.railway.app/mf-stats -H \"X-User-Id: 00000000-0000-0000-0000-000000000002\")",
+      "Bash(curl -s https://limitless-app-production.up.railway.app/mf-sessions -H \"X-User-Id: 00000000-0000-0000-0000-000000000001\")",
+      "Bash(curl -s -X POST https://limitless-app-production.up.railway.app/mf-sessions/delete-by-prefix -H 'Content-Type: application/json' -H 'X-User-Id: 00000000-0000-0000-0000-000000000001' -d '{\"\"prefix\"\":\"\"seed-\"\"}')",
+      "Bash(curl:*)",
+      "Bash(pkill -f \"node server\")",
+      "Bash(pkill -f vite)"
     ]
   }
 }

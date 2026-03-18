@@ -576,7 +576,7 @@ export function ConstructivistHomeScreen({ sessions, stats, onSeed, onCheckIn, t
             { value: totalXp.toLocaleString(), label: 'TOTAL XP' },
             { value: sessions.length, label: 'SESSIONS' },
             { value: streak > 0 ? `${streak}D` : '--', label: 'STREAK' },
-            { value: `${uniquePractices}/${TOTAL_PRACTICES}`, label: 'TRIED' },
+            { value: uniquePractices, label: 'TRIED' },
           ].map((d, i) => (
             <div key={d.label}
               className="py-3 px-3 text-center"
@@ -696,28 +696,6 @@ export function ConstructivistHomeScreen({ sessions, stats, onSeed, onCheckIn, t
           </div>
         </div>
 
-        {/* ── Level Presets (Dev) ── */}
-        <HeavyBar />
-        <div className="py-3 pb-6">
-          <SectionHeader label="PREVIEW" theme={theme} />
-          <div className="flex gap-0" style={{ border: BORDER_MEDIUM }}>
-            {LEVELS.map((lvl, i) => (
-              <motion.button key={lvl.name} onClick={() => onSeed(i)}
-                className="flex-1 py-2.5 text-[8px] font-bold uppercase tracking-wider"
-                style={{
-                  background: level.idx === i ? ACCENT_DIM : 'transparent',
-                  borderRight: i < LEVELS.length - 1 ? `1px solid rgba(196,164,108,0.12)` : 'none',
-                  color: level.idx === i ? (theme?.text || '#ddd5c0') : (theme?.textMuted || 'rgba(221,213,192,0.28)'),
-                  fontFamily: theme?.fontHeader || "'Bebas Neue', sans-serif",
-                }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ duration: 0.08 }}
-              >
-                {lvl.short}
-              </motion.button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

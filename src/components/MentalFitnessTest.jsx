@@ -1271,8 +1271,8 @@ function LogSession({ onSave, onBack, theme, customPractices, totalXp, onCreateC
   const elRadius = special === 'war-room' ? '0px' : special === 'ink' ? '2px' : special === 'mountain' ? '6px' : special === 'snow' ? '6px' : theme?.radiusSm || '12px'
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className={`${special === 'snow' ? 'px-8 py-8' : 'px-6 py-5'} flex-1 flex flex-col`}>
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className={`${special === 'snow' ? 'px-8 py-8' : 'px-6 py-5'} flex-1 min-h-0 flex flex-col overflow-hidden`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <LevelSectionHeader special={special} color={multiplierLabel ? '#A78BFA' : activeTab.color}
@@ -1440,96 +1440,6 @@ function LogSession({ onSave, onBack, theme, customPractices, totalXp, onCreateC
   )
 }
 
-// ── Seed test data ──────────────────────────────────────────────────────────
-
-function generateSeedForLevel(targetLevelIdx) {
-  const targetLevel = LEVELS[targetLevelIdx]
-  const nextLevel = LEVELS[targetLevelIdx + 1]
-  const targetXp = nextLevel
-    ? targetLevel.minXp + (nextLevel.minXp - targetLevel.minXp) * 0.55
-    : targetLevel.minXp * 1.2
-
-  const sessions = []
-  const now = Date.now()
-  const DAY = 86400000
-  let idx = 0
-  let runningXp = 0
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)]
-  const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1))
-
-  const scales = [
-    [2, 1, 0, 0],       // Awakened
-    [4, 3, 1, 0],       // Practitioner
-    [8, 5, 3, 1],       // Adept
-    [14, 10, 6, 4],     // Warrior
-    [20, 16, 10, 6],    // Master
-    [30, 24, 16, 10],   // Legend
-    [45, 36, 26, 18],   // Ascended
-    [70, 58, 42, 32],   // Eternal
-  ][targetLevelIdx]
-
-  const xpPools = [[5, 5, 10], [5, 10, 10], [10, 10, 20], [10, 20, 20], [10, 20, 30], [20, 20, 30], [20, 30, 30], [30, 30, 30]]
-  const xpPool = xpPools[targetLevelIdx]
-
-  PHASES.forEach((phase, pi) => {
-    const maxPerPractice = scales[pi]
-    if (!maxPerPractice) return
-    phase.practices.forEach(p => {
-      const count = randInt(0, maxPerPractice)
-      for (let j = 0; j < count; j++) {
-        const xpAwarded = pick(xpPool)
-        const sess = {
-          id: `seed-${idx++}`,
-          timestamp: new Date(now - randInt(1, 120) * DAY + randInt(0, DAY)).toISOString(),
-          practiceId: p.id,
-          practiceName: p.name,
-          isCustom: false,
-          primarySkill: p.primarySkill,
-          secondarySkill: p.secondarySkill,
-          xpAwarded,
-        }
-        sessions.push(sess)
-        runningXp += xpAwarded
-      }
-    })
-  })
-
-  const maxXp = nextLevel ? nextLevel.minXp - 1 : Infinity
-  while ((runningXp > targetXp * 1.3 || runningXp > maxXp) && sessions.length > 2) {
-    const removed = sessions.pop()
-    runningXp -= removed.xpAwarded
-  }
-  while (runningXp < targetXp * 0.8 && runningXp < maxXp && sessions.length > 0) {
-    const base = pick(sessions)
-    const xpAwarded = pick(xpPool)
-    const practice = PRACTICE_MAP[base.practiceId]
-    const sess = {
-      id: `seed-${idx++}`,
-      timestamp: new Date(now - randInt(1, 90) * DAY + randInt(0, DAY)).toISOString(),
-      practiceId: base.practiceId,
-      practiceName: practice?.name || base.practiceId,
-      isCustom: false,
-      primarySkill: practice?.primarySkill || null,
-      secondarySkill: practice?.secondarySkill || null,
-      xpAwarded,
-    }
-    sessions.push(sess)
-    runningXp += xpAwarded
-  }
-
-  while (runningXp > maxXp && sessions.length > 2) {
-    const removed = sessions.pop()
-    runningXp -= removed.xpAwarded
-  }
-
-  for (let i = sessions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [sessions[i], sessions[j]] = [sessions[j], sessions[i]]
-  }
-
-  return { sessions, customPractices: [] }
-}
-
 // ── Named exports for level-specific screen implementations ──────────────────
 export {
   PHASES, LEVELS, TOTAL_PRACTICES, CHECK_INS, DEPTH_LEVELS,
@@ -1614,21 +1524,6 @@ export default function MentalFitnessTest({ onLogout }) {
     }))
     setShowCustomModal(false)
     postCustomPractice(practice).catch(e => console.error('Failed to save custom practice:', e))
-  }, [])
-
-  const seedData = useCallback(async (levelIdx) => {
-    const seed = generateSeedForLevel(levelIdx)
-    setData(seed)
-    setMfXp(cacheMfXp(seed.sessions))
-    try {
-      await fetch('/api/mf-sessions/bulk', {
-        method: 'POST',
-        headers: userHeaders(),
-        body: JSON.stringify(seed),
-      })
-    } catch (e) {
-      console.error('Failed to seed mf data:', e)
-    }
   }, [])
 
   const [xpReward, setXpReward] = useState(null)
@@ -1731,8 +1626,8 @@ export default function MentalFitnessTest({ onLogout }) {
             return (
               <>
                 {screen === 'overview' && (screens
-                  ? <screens.Home sessions={data.sessions} stats={stats} onSeed={seedData} onCheckIn={setActiveCheckIn} theme={theme} />
-                  : <OverviewScreen sessions={data.sessions} stats={stats} onSeed={seedData} onCheckIn={setActiveCheckIn} theme={theme} />
+                  ? <screens.Home sessions={data.sessions} stats={stats} onCheckIn={setActiveCheckIn} theme={theme} />
+                  : <OverviewScreen sessions={data.sessions} stats={stats} onCheckIn={setActiveCheckIn} theme={theme} />
                 )}
                 {screen === 'train' && <TrainScreen data={data} stats={stats} onLog={() => setLogging('normal')} onLogPsychedelic={() => setLogging('psychedelic')} onCheckIn={setActiveCheckIn} theme={theme} />}
                 {screen === 'stats' && <StatsScreen sessions={data.sessions} stats={stats} theme={theme} />}

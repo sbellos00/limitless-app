@@ -784,32 +784,6 @@ export function AnimeHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
         <HorizontalSpeedLines color={ACCENT_ALT} />
       </div>
 
-      {/* ── DEV: Level Presets ── */}
-      <div className="px-5 mt-2 pb-8 relative z-10">
-        <span className="text-[9px] uppercase tracking-[0.15em] font-bold block mb-2"
-          style={{ color: theme?.textMuted, fontFamily: theme?.fontBody }}>
-          Preview
-        </span>
-        <div className="flex gap-1.5">
-          {LEVELS.map((lvl, i) => (
-            <motion.button
-              key={lvl.name}
-              onClick={() => onSeed(i)}
-              className="flex-1 py-2.5 text-[8px] font-bold uppercase tracking-wider transition-transform"
-              style={{
-                background: level.idx === i ? `${ACCENT}18` : 'transparent',
-                border: level.idx === i ? `2px solid ${ACCENT}50` : `2px solid ${ACCENT}15`,
-                borderRadius: RADIUS_SM,
-                color: level.idx === i ? ACCENT : theme?.textMuted,
-                fontFamily: theme?.fontBody,
-              }}
-              whileTap={{ scale: 0.93 }}
-            >
-              {lvl.short}
-            </motion.button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

@@ -624,7 +624,7 @@ export function EditorialHomeScreen({ sessions, stats, onSeed, onCheckIn, theme 
               <AsymStat value={streak > 0 ? `${streak}d` : '\u2014'} label="Streak" divider={false} />
             </div>
             <div className="w-1/2">
-              <AsymStat value={`${uniquePractices}/${TOTAL_PRACTICES}`} label="Tried" />
+              <AsymStat value={uniquePractices} label="Tried" />
             </div>
           </div>
         </div>
@@ -730,30 +730,6 @@ export function EditorialHomeScreen({ sessions, stats, onSeed, onCheckIn, theme 
           </div>
         </div>
 
-        <DoubleRule />
-
-        {/* Dev: Level Presets */}
-        <div className="py-5 pb-8">
-          <SectionTitle>Preview</SectionTitle>
-          <div className="flex gap-1.5 mt-3">
-            {LEVELS.map((lvl, i) => (
-              <button key={lvl.name} onClick={() => onSeed(i)}
-                className="flex-1 py-2.5 transition-all active:opacity-60"
-                style={{
-                  background: level.idx === i ? CREAM_08 : 'transparent',
-                  border: `0.5px solid ${level.idx === i ? CREAM_15 : CREAM_04}`,
-                  borderRadius: '6px',
-                  color: level.idx === i ? CREAM : CREAM_30,
-                  fontFamily: SANS,
-                  fontSize: '8px',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                }}>
-                {lvl.short}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

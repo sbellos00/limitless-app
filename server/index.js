@@ -1107,12 +1107,6 @@ app.post('/mf-custom-practices', (req, res) => {
   }
 })
 
-app.post('/mf-sessions/delete-by-prefix', (req, res) => {
-  const { prefix } = req.body
-  if (!prefix) return res.status(400).json({ error: 'prefix required' })
-  const result = db.mfSessions.deleteByPrefix.run(req.userId, prefix + '%')
-  res.json({ ok: true, deleted: result.changes })
-})
 
 app.post('/mf-sessions/bulk', (req, res) => {
   const { sessions, customPractices } = req.body

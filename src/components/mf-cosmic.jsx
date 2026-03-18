@@ -552,7 +552,7 @@ export function CosmicHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) 
               { value: totalXp.toLocaleString(), label: 'Total XP' },
               { value: sessions.length, label: 'Sessions' },
               { value: streak > 0 ? `${streak}d` : '\u2014', label: 'Streak' },
-              { value: `${uniquePractices}/${TOTAL_PRACTICES}`, label: 'Practices' },
+              { value: uniquePractices, label: 'Practices' },
             ].map(d => (
               <div key={d.label} className="p-3" style={{
                 ...glassSmall,
@@ -664,30 +664,6 @@ export function CosmicHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) 
           </div>
         </GlassCard>
 
-        <GradientDivider />
-
-        {/* ── Dev: Level Presets ── */}
-        <div className="pb-8">
-          <p className="text-[8px] uppercase tracking-[0.3em] mb-3"
-            style={{ color: TEXT_MUTED, fontFamily: FONT }}>
-            Preview
-          </p>
-          <div className="flex gap-1.5">
-            {LEVELS.map((lvl, i) => (
-              <button key={lvl.name} onClick={() => onSeed(i)}
-                className="flex-1 py-2 text-[8px] tracking-wider transition-all active:scale-95"
-                style={{
-                  ...glassSmall,
-                  background: level.idx === i ? a(0.08) : a(0.02),
-                  borderColor: level.idx === i ? a(0.15) : a(0.05),
-                  color: level.idx === i ? TEXT : TEXT_MUTED,
-                  fontFamily: FONT,
-                }}>
-                {lvl.short}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

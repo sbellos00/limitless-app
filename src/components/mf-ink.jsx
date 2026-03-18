@@ -1035,7 +1035,7 @@ export function InkHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
             <HudLine label="TIER" value={level.tier || 'INITIATE'} delay={0.25} />
             <HudLine label="XP" value={totalXp.toLocaleString()} delay={0.3} />
             <HudLine label="STREAK" value={streak > 0 ? `${streak}d` : 'N/A'} delay={0.35} alert={streak === 0} />
-            <HudLine label="PRACTICES" value={`${uniquePractices}/${TOTAL_PRACTICES}`} delay={0.4} />
+            <HudLine label="PRACTICES" value={`${uniquePractices}`} delay={0.4} />
             <HudLine label="SESSIONS" value={String(sessions.length)} delay={0.45} />
           </TacticalCard>
         </motion.div>
@@ -1182,42 +1182,6 @@ export function InkHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
         </div>
       </div>
 
-      <HudDivider />
-
-      {/* ── DEV: Level Presets ── */}
-      <div className="px-5 pb-8 relative z-10">
-        <div style={{
-          fontFamily: FONT,
-          fontSize: '8px',
-          color: TEXT_MUTED,
-          letterSpacing: '0.12em',
-          marginBottom: '8px',
-        }}>
-          {'// DEV_PRESETS'}
-        </div>
-        <div className="flex gap-1">
-          {LEVELS.map((lvl, i) => (
-            <button
-              key={lvl.name}
-              onClick={() => onSeed(i)}
-              className="flex-1 py-2 transition-all"
-              style={{
-                background: level.idx === i ? 'rgba(57,255,20,0.15)' : 'transparent',
-                border: `1px solid ${level.idx === i ? GREEN : GREEN_BORDER}`,
-                borderRadius: 0,
-                color: level.idx === i ? GREEN : TEXT_MUTED,
-                fontFamily: FONT,
-                fontSize: '7px',
-                letterSpacing: '0.08em',
-                cursor: 'pointer',
-                textShadow: level.idx === i ? GLOW : 'none',
-              }}
-            >
-              {lvl.short}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

@@ -587,7 +587,7 @@ export function FilmHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
                     { value: totalXp.toLocaleString(), label: 'XP' },
                     { value: sessions.length, label: 'Sessions' },
                     { value: streak > 0 ? `${streak}d` : '—', label: 'Streak' },
-                    { value: `${uniquePractices}/${TOTAL_PRACTICES}`, label: 'Tried' },
+                    { value: uniquePractices, label: 'Tried' },
                   ].map(d => (
                     <div key={d.label}>
                       <p className="text-[20px] font-semibold tabular-nums leading-none"
@@ -679,27 +679,6 @@ export function FilmHomeScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
               </div>
             </div>
 
-            <Rule />
-
-            {/* Dev: Level Presets */}
-            <div className="py-4 pb-8">
-              <SectionLabel label="Preview" theme={theme} />
-              <div className="flex gap-1 mt-2 mx-auto" style={{ maxWidth: 300 }}>
-                {LEVELS.map((lvl, i) => (
-                  <button key={lvl.name} onClick={() => onSeed(i)}
-                    className="flex-1 py-2 text-[8px] font-medium uppercase tracking-wider transition-all"
-                    style={{
-                      background: level.idx === i ? 'rgba(201,123,58,0.1)' : 'transparent',
-                      border: `1px solid ${level.idx === i ? 'rgba(201,123,58,0.2)' : 'rgba(201,123,58,0.06)'}`,
-                      borderRadius: 8,
-                      color: level.idx === i ? BEIGE : (theme?.textMuted),
-                      fontFamily: FONT,
-                    }}>
-                    {lvl.short}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </FilmFrame>
