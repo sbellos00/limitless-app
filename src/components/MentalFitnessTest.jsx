@@ -1465,34 +1465,6 @@ export default function MentalFitnessTest({ onLogout }) {
     (async () => {
       const serverData = await fetchMfData()
 
-      // One-time migration: if server is empty but localStorage has data
-      if (serverData.sessions.length === 0) {
-        const lsRaw = localStorage.getItem('limitless_mental_fitness')
-        if (lsRaw) {
-          try {
-            const lsData = JSON.parse(lsRaw)
-            const lsSessions = (lsData.sessions || []).filter(s => s.practiceId).map(migrateSession)
-            const lsCustom = lsData.customPractices || []
-            if (lsSessions.length > 0) {
-              await fetch('/api/mf-sessions/bulk', {
-                method: 'POST',
-                headers: userHeaders(),
-                body: JSON.stringify({ sessions: lsSessions, customPractices: lsCustom }),
-              })
-              const migrated = await fetchMfData()
-              setData(migrated)
-              const xp = cacheMfXp(migrated.sessions)
-              setMfXp(xp)
-              localStorage.removeItem('limitless_mental_fitness')
-              setLoading(false)
-              return
-            }
-          } catch (e) {
-            console.error('MF migration failed:', e)
-          }
-        }
-      }
-
       setData(serverData)
       const xp = cacheMfXp(serverData.sessions)
       setMfXp(xp)
