@@ -95,13 +95,13 @@ Each practice has a primary skill (80% XP) and optional secondary skill (20% XP)
 | Shift into Awareness | `shift-into-awareness` | natural-awareness | — |
 | Turning | `turning` | natural-awareness | meta-awareness |
 | Resting in Awareness | `resting-in-awareness` | natural-awareness | — |
-| Beyond Thought A | `beyond-thought-a` | natural-awareness | nondual-awareness |
-| Beyond Thought B | `beyond-thought-b` | natural-awareness | nondual-awareness |
+| Beyond Thought A | `beyond-thought-a` | nondual-awareness | natural-awareness |
+| Beyond Thought B | `beyond-thought-b` | nondual-awareness | natural-awareness |
 | Jumbo Head | `jumbo-head` | natural-awareness | body-awareness |
-| Deep Mind | `deep-mind` | natural-awareness | nondual-awareness |
+| Deep Mind | `deep-mind` | nondual-awareness | natural-awareness |
 | Witnessing | `witnessing` | natural-awareness | meta-awareness |
-| Boundless | `boundless` | natural-awareness | nondual-awareness |
-| Becoming the Space | `becoming-the-space` | natural-awareness | nondual-awareness |
+| Boundless | `boundless` | nondual-awareness | natural-awareness |
+| Becoming the Space | `becoming-the-space` | nondual-awareness | natural-awareness |
 | Settling the Mind | `settling-the-mind` | natural-awareness | natural-flow |
 | The Observer | `the-observer` | natural-awareness | meta-awareness |
 
