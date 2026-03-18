@@ -160,8 +160,10 @@ async function postCustomPractice(practice) {
 function getDateKey(d) { return new Date(d).toLocaleDateString('en-CA') }
 
 function getStreak(sessions) {
-  if (!sessions.length) return 0
-  const days = [...new Set(sessions.map(s => getDateKey(s.timestamp)))].sort().reverse()
+  // Exclude check-ins — only real practice sessions count toward streak
+  const real = sessions.filter(s => !s.practiceId?.startsWith('checkin-'))
+  if (!real.length) return 0
+  const days = [...new Set(real.map(s => getDateKey(s.timestamp)))].sort().reverse()
   let streak = 0, expected = getDateKey(new Date())
   for (const day of days) {
     if (day === expected) {

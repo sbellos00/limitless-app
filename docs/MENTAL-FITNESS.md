@@ -42,13 +42,30 @@ The 51 built-in practices each map to a skill from the table above. See `src/dat
 
 ## XP System
 
-### Presets
-| XP | Label | Unlocked At |
-|----|-------|-------------|
-| 5 | Light | Level 1 |
-| 10 | Medium | Level 1 |
-| 20 | Heavy | Level 3 |
-| 30 | Intense | Level 5 |
+### Base XP Calculation
+Base XP is computed from **duration**, **overall level**, and **skill tier**:
+
+```
+rate = (overallLevelRate + skillTierRate) / 2
+baseXP = duration_minutes × rate
+```
+
+Both rates range from **0.7 to 1.5**:
+
+| Overall Level | Rate | | Skill Tier | Rate |
+|---------------|------|-|------------|------|
+| 1 Awakened | 0.70 | | Novice | 0.70 |
+| 2 Practitioner | 0.81 | | Developing | 0.86 |
+| 3 Adept | 0.93 | | Proficient | 1.02 |
+| 4 Warrior | 1.04 | | Advanced | 1.18 |
+| 5 Master | 1.16 | | Master | 1.34 |
+| 6 Legend | 1.27 | | Diamond | 1.50 |
+| 7 Ascended | 1.39 | | | |
+| 8 Eternal | 1.50 | | | |
+
+**Example**: Level 4 (1.04) + Proficient skill (1.02) → rate 1.03 → 15 min = 15 XP base.
+
+For manifestation practices with multiple skills, the skill tier rates are averaged across all targeted skills.
 
 ### XP Split
 - Primary skill gets **80%** of awarded XP
@@ -57,6 +74,8 @@ The 51 built-in practices each map to a skill from the table above. See `src/dat
 - **Manifestation practices only**: custom `skillSplits` with up to 3 skills and custom ratios (e.g. 33/33/33, 50/30/20). When `skillSplits` is present on a session, it overrides the standard 80/20 split. This should not be used for other practice categories.
 
 ### Streak Multipliers
+Only real practice sessions count toward the streak — check-ins do not.
+
 | Days | Multiplier |
 |------|-----------|
 | 3 | 1.1x |
@@ -64,7 +83,7 @@ The 51 built-in practices each map to a skill from the table above. See `src/dat
 | 14 | 1.5x |
 | 30 | 2.0x |
 
-Stacks with the psychedelic training multiplier (10x).
+Stacks with the psychedelic training multiplier (10x). Applied on top of base XP.
 
 ### Skill Decay
 - **Grace period**: 14 days of no practice on a skill before decay starts

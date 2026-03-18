@@ -37,8 +37,7 @@ export const SKILLS = {
 // All skill IDs for iteration
 export const ALL_SKILL_IDS = Object.keys(SKILLS)
 
-// ─── XP Presets ──────────────────────────────────────────────────────────────
-// Unlock higher presets as you level up. Check-ins award a flat 2 XP to global total.
+// ─── XP Presets (legacy — used by manual LogSession UI) ─────────────────────
 
 export const XP_PRESETS = [
   { value: 5,  label: 'Light',   minLevel: 1 },
@@ -46,6 +45,31 @@ export const XP_PRESETS = [
   { value: 20, label: 'Heavy',   minLevel: 3 },
   { value: 30, label: 'Intense', minLevel: 5 },
 ]
+
+// ─── XP Rate System ─────────────────────────────────────────────────────────
+// baseXP = duration_minutes × (overallLevelRate + skillTierRate) / 2
+// Range 0.7–1.5 for both. A Level 1 Novice earns ~0.7 XP/min, a Level 8 Diamond earns ~1.5 XP/min.
+// Used by agents processing FitMind screenshots. Manual UI still uses XP_PRESETS above.
+
+export const LEVEL_RATES = [0.7, 0.81, 0.93, 1.04, 1.16, 1.27, 1.39, 1.5]
+export const TIER_RATES  = [0.7, 0.86, 1.02, 1.18, 1.34, 1.5]
+
+export function computeBaseXp(durationMin, levelIdx, skillTierIdx) {
+  const levelRate = LEVEL_RATES[levelIdx] || LEVEL_RATES[0]
+  const tierRate = TIER_RATES[skillTierIdx] || TIER_RATES[0]
+  const rate = (levelRate + tierRate) / 2
+  return Math.round(durationMin * rate)
+}
+
+// For manifestation practices with multiple skills, average the tier rates
+export function computeBaseXpMultiSkill(durationMin, levelIdx, skillTierIndices) {
+  const levelRate = LEVEL_RATES[levelIdx] || LEVEL_RATES[0]
+  const avgTierRate = skillTierIndices.length > 0
+    ? skillTierIndices.reduce((sum, idx) => sum + (TIER_RATES[idx] || TIER_RATES[0]), 0) / skillTierIndices.length
+    : TIER_RATES[0]
+  const rate = (levelRate + avgTierRate) / 2
+  return Math.round(durationMin * rate)
+}
 
 export const CHECKIN_XP = 2
 
