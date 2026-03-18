@@ -187,14 +187,16 @@ function getStreak(sessions) {
 
 function useStats(sessions) {
   return useMemo(() => {
+    // Check-ins contribute XP but don't count as sessions
+    const real = sessions.filter(s => !s.practiceId?.startsWith('checkin-'))
     const totalXp = sessions.reduce((s, sess) => s + getSessionXp(sess), 0)
-    const totalMin = sessions.reduce((s, sess) => s + (sess.durationMin || 0), 0)
+    const totalMin = real.reduce((s, sess) => s + (sess.durationMin || 0), 0)
     const totalHours = totalMin / 60
     const level = getLevel(totalXp)
     const streak = getStreak(sessions)
 
     const practiceCounts = {}
-    for (const s of sessions) practiceCounts[s.practiceId] = (practiceCounts[s.practiceId] || 0) + 1
+    for (const s of real) practiceCounts[s.practiceId] = (practiceCounts[s.practiceId] || 0) + 1
 
     const phaseStats = PHASES.map(phase => {
       const pIds = new Set(phase.practices.map(p => p.id))
@@ -205,7 +207,7 @@ function useStats(sessions) {
     let currentPhaseIdx = phaseStats.findIndex(p => p.pct < 100)
     if (currentPhaseIdx === -1) currentPhaseIdx = phaseStats.length - 1
 
-    const uniquePractices = new Set(sessions.map(s => s.practiceId)).size
+    const uniquePractices = new Set(real.map(s => s.practiceId)).size
 
     // Skill & category XP (with decay applied)
     const rawSkillXp = computeSkillXp(sessions)
@@ -216,7 +218,9 @@ function useStats(sessions) {
     const streakMultiplier = getStreakMultiplier(streak)
     const streakLabel = getStreakLabel(streak)
 
-    return { totalXp, totalMin, totalHours, level, streak, streakMultiplier, streakLabel, practiceCounts, phaseStats, currentPhaseIdx, uniquePractices, skillXp, categoryXp }
+    const sessionCount = real.length
+
+    return { totalXp, totalMin, totalHours, level, streak, streakMultiplier, streakLabel, practiceCounts, phaseStats, currentPhaseIdx, uniquePractices, skillXp, categoryXp, sessionCount }
   }, [sessions])
 }
 
@@ -623,7 +627,7 @@ function CheckInButtons({ theme, color, onCheckIn }) {
 // ── Overview Screen ──────────────────────────────────────────────────────────
 
 function OverviewScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
-  const { level, streak, totalXp, phaseStats, uniquePractices, categoryXp } = stats
+  const { level, streak, totalXp, phaseStats, uniquePractices, categoryXp, sessionCount } = stats
   const special = theme?.special || 'anime'
 
   const lvlProgress = level.next
@@ -685,7 +689,7 @@ function OverviewScreen({ sessions, stats, onSeed, onCheckIn, theme }) {
             )}
 
             <LevelStatRow special={special} color={level.color} theme={theme} stats={[
-              { label: 'Sessions', value: sessions.length },
+              { label: 'Sessions', value: sessionCount },
               { label: 'Streak', value: streak > 0 ? `${streak}d` : '\u2014' },
               { label: 'XP', value: totalXp.toLocaleString() },
               { label: 'Tried', value: `${uniquePractices}/${TOTAL_PRACTICES}` },
@@ -979,7 +983,7 @@ function DisciplineBar({ phase, practiceCounts, sessions, theme, color }) {
 // ── Stats Screen ─────────────────────────────────────────────────────────────
 
 function StatsScreen({ sessions, stats, theme }) {
-  const { level, totalXp, practiceCounts, phaseStats, streak, uniquePractices, skillXp, categoryXp } = stats
+  const { level, totalXp, practiceCounts, phaseStats, streak, uniquePractices, skillXp, categoryXp, sessionCount } = stats
   const special = theme?.special || 'anime'
   const overall = getOverallRating(skillXp)
   const overallTier = getSkillTier(0) // just for color — use rating-based color
@@ -999,7 +1003,7 @@ function StatsScreen({ sessions, stats, theme }) {
         {/* Summary metrics — single subtle line */}
         <div className="flex items-center justify-between" style={{ opacity: 0.8 }}>
           {[
-            { label: 'Sessions', value: sessions.length },
+            { label: 'Sessions', value: sessionCount },
             { label: 'XP', value: totalXp.toLocaleString() },
             { label: 'Streak', value: streak > 0 ? `${streak}d` : '\u2014' },
             { label: 'Tried', value: `${uniquePractices}/${TOTAL_PRACTICES}` },

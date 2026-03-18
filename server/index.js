@@ -1046,7 +1046,7 @@ app.get('/mf-stats', (req, res) => {
     levelName: ['Awakened', 'Practitioner', 'Adept', 'Warrior', 'Master', 'Legend', 'Ascended', 'Eternal'][levelIdx],
     levelRate: MF_LEVEL_RATES[levelIdx],
     streak,
-    totalSessions: sessionRows.length,
+    totalSessions: realSessions.length,
     skillTiers,
   })
 })
