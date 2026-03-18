@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const FONT = "'Bebas Neue', sans-serif"
+
 const AVATARS = {
   stef: '/LimitlessPreloader/Neo.jpg',
   john: '/LimitlessPreloader/KobeFlinch.jpg',
@@ -63,12 +65,10 @@ export default function MFUserSelect({ onAuth }) {
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-black overflow-hidden relative">
-      {/* Subtle background */}
       <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
 
       <AnimatePresence mode="wait">
         {!selected ? (
-          /* ── User Selection ── */
           <motion.div
             key="select"
             className="z-10 flex flex-col items-center gap-10"
@@ -78,7 +78,8 @@ export default function MFUserSelect({ onAuth }) {
             transition={{ duration: 0.3 }}
           >
             <motion.p
-              className="text-[13px] font-medium uppercase tracking-[0.25em] text-white/30"
+              className="text-[18px] uppercase tracking-[0.25em] text-white/30"
+              style={{ fontFamily: FONT }}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -102,7 +103,6 @@ export default function MFUserSelect({ onAuth }) {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleSelect(user)}
                 >
-                  {/* Avatar */}
                   <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 border-white/10 group-hover:border-white/30 transition-colors">
                     <img
                       src={AVATARS[user.name] || AVATARS.stef}
@@ -112,8 +112,8 @@ export default function MFUserSelect({ onAuth }) {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   </div>
 
-                  {/* Name */}
-                  <span className="text-[15px] font-bold uppercase tracking-wider text-white/60 group-hover:text-white/90 transition-colors capitalize">
+                  <span className="text-[18px] uppercase tracking-wider text-white/60 group-hover:text-white/90 transition-colors capitalize"
+                    style={{ fontFamily: FONT }}>
                     {user.name}
                   </span>
                 </motion.button>
@@ -121,7 +121,6 @@ export default function MFUserSelect({ onAuth }) {
             </div>
           </motion.div>
         ) : (
-          /* ── Password Entry ── */
           <motion.div
             key="password"
             className="z-10 flex flex-col items-center gap-6 w-full max-w-[280px]"
@@ -130,7 +129,6 @@ export default function MFUserSelect({ onAuth }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Avatar + Name */}
             <motion.div
               className="flex flex-col items-center gap-3"
               initial={{ y: -10 }}
@@ -143,12 +141,12 @@ export default function MFUserSelect({ onAuth }) {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-[14px] font-bold uppercase tracking-wider text-white/70 capitalize">
+              <span className="text-[18px] uppercase tracking-wider text-white/70 capitalize"
+                style={{ fontFamily: FONT }}>
                 {selected.name}
               </span>
             </motion.div>
 
-            {/* Password form */}
             <form onSubmit={handleSubmit} className="w-full flex flex-col items-center gap-4">
               <motion.div
                 className="w-full relative"
@@ -162,14 +160,15 @@ export default function MFUserSelect({ onAuth }) {
                   pattern="[0-9]*"
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError(false) }}
-                  placeholder="Enter PIN"
-                  className="w-full px-4 py-3 text-center text-[18px] font-bold tracking-[0.3em] bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
-                  style={{ letterSpacing: '0.3em' }}
+                  placeholder="ENTER PIN"
+                  className="w-full px-4 py-3 text-center text-[22px] tracking-[0.3em] bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
+                  style={{ fontFamily: FONT, letterSpacing: '0.3em' }}
                   autoComplete="off"
                 />
                 {error && (
                   <motion.p
-                    className="absolute -bottom-5 left-0 right-0 text-center text-[10px] text-red-400/80"
+                    className="absolute -bottom-5 left-0 right-0 text-center text-[12px] text-red-400/80"
+                    style={{ fontFamily: FONT }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                   >
@@ -180,8 +179,9 @@ export default function MFUserSelect({ onAuth }) {
 
               <motion.button
                 type="submit"
-                className="w-full py-3 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] transition-all"
+                className="w-full py-3 rounded-xl text-[14px] uppercase tracking-[0.2em] transition-all"
                 style={{
+                  fontFamily: FONT,
                   background: password.length >= 4 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
                   color: password.length >= 4 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
                   border: `1px solid ${password.length >= 4 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)'}`,
@@ -193,9 +193,9 @@ export default function MFUserSelect({ onAuth }) {
               </motion.button>
             </form>
 
-            {/* Back */}
             <motion.button
-              className="text-[11px] uppercase tracking-[0.2em] text-white/20 hover:text-white/40 transition-colors mt-2"
+              className="text-[13px] uppercase tracking-[0.2em] text-white/20 hover:text-white/40 transition-colors mt-2"
+              style={{ fontFamily: FONT }}
               onClick={handleBack}
               whileTap={{ scale: 0.95 }}
             >
