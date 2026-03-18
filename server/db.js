@@ -53,6 +53,9 @@ database.pragma('foreign_keys = ON')
 const schemaSql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8')
 database.exec(schemaSql)
 
+// Migrations — safe to run repeatedly
+try { database.exec('ALTER TABLE mf_sessions ADD COLUMN skill_splits TEXT') } catch {}
+
 // Seed default user
 const seedUser = database.prepare(
   `INSERT OR IGNORE INTO users (id, name, created_at, is_default) VALUES (?, ?, ?, 1)`

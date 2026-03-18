@@ -949,6 +949,108 @@ app.get('/mf-sessions', (req, res) => {
   res.json({ sessions, customPractices })
 })
 
+// XP rate constants (mirror src/data/mental-fitness.js)
+const MF_LEVEL_THRESHOLDS = [0, 300, 1000, 3000, 6000, 11000, 18000, 28000]
+const MF_TIER_THRESHOLDS = [0, 100, 500, 1500, 5000, 10000]
+const MF_TIER_NAMES = ['Novice', 'Developing', 'Proficient', 'Advanced', 'Master', 'Diamond']
+const MF_LEVEL_RATES = [0.7, 0.81, 0.93, 1.04, 1.16, 1.27, 1.39, 1.5]
+const MF_TIER_RATES = [0.7, 0.86, 1.02, 1.18, 1.34, 1.5]
+const MF_PRIMARY_RATIO = 0.8
+const MF_SECONDARY_RATIO = 0.2
+const MF_SKILL_IDS = [
+  'focused-attention', 'meta-awareness', 'deep-work',
+  'natural-flow', 'natural-awareness', 'nondual-awareness',
+  'breath-control', 'body-awareness',
+  'blissful-presence', 'emotional-awareness',
+  'good-traits', 'mindset',
+  'mental-endurance',
+  'visualization', 'subconscious-programming',
+  'transcendence', 'inner-exploration', 'lucid-dreaming',
+]
+
+function mfGetLevelIdx(totalXp) {
+  let idx = 0
+  for (let i = 0; i < MF_LEVEL_THRESHOLDS.length; i++) {
+    if (totalXp >= MF_LEVEL_THRESHOLDS[i]) idx = i
+  }
+  return idx
+}
+
+function mfGetTierIdx(skillXp) {
+  let idx = 0
+  for (let i = 0; i < MF_TIER_THRESHOLDS.length; i++) {
+    if (skillXp >= MF_TIER_THRESHOLDS[i]) idx = i
+  }
+  return idx
+}
+
+app.get('/mf-stats', (req, res) => {
+  const sessionRows = db.mfSessions.getAll.all(req.userId)
+
+  // Total XP
+  const totalXp = sessionRows.reduce((sum, r) => sum + (r.xp_awarded || 0), 0)
+  const levelIdx = mfGetLevelIdx(totalXp)
+
+  // Skill XP (with splits support)
+  const skillXp = Object.fromEntries(MF_SKILL_IDS.map(id => [id, 0]))
+  for (const r of sessionRows) {
+    if (!r.xp_awarded) continue
+    if (r.skill_splits) {
+      try {
+        const splits = JSON.parse(r.skill_splits)
+        for (const [skill, ratio] of Object.entries(splits)) {
+          if (skillXp[skill] !== undefined) skillXp[skill] += Math.round(r.xp_awarded * ratio)
+        }
+        continue
+      } catch {}
+    }
+    if (!r.primary_skill) continue
+    const primary = Math.round(r.xp_awarded * MF_PRIMARY_RATIO)
+    const secondary = r.secondary_skill ? Math.round(r.xp_awarded * MF_SECONDARY_RATIO) : 0
+    if (skillXp[r.primary_skill] !== undefined) skillXp[r.primary_skill] += primary
+    if (r.secondary_skill && skillXp[r.secondary_skill] !== undefined) skillXp[r.secondary_skill] += secondary
+  }
+
+  // Skill tiers
+  const skillTiers = {}
+  for (const [skill, xp] of Object.entries(skillXp)) {
+    const tierIdx = mfGetTierIdx(xp)
+    skillTiers[skill] = {
+      xp,
+      tierIdx,
+      tierName: MF_TIER_NAMES[tierIdx],
+      rate: MF_TIER_RATES[tierIdx],
+    }
+  }
+
+  // Streak (exclude check-ins)
+  const realSessions = sessionRows.filter(r => !r.practice_id?.startsWith('checkin-'))
+  let streak = 0
+  if (realSessions.length > 0) {
+    const toDateKey = ts => new Date(ts).toISOString().slice(0, 10)
+    const days = [...new Set(realSessions.map(r => toDateKey(r.timestamp)))].sort().reverse()
+    const today = toDateKey(new Date().toISOString())
+    let expected = today
+    for (const day of days) {
+      if (day === expected) {
+        streak++
+        const d = new Date(expected); d.setDate(d.getDate() - 1)
+        expected = d.toISOString().slice(0, 10)
+      } else if (day < expected) break
+    }
+  }
+
+  res.json({
+    totalXp,
+    levelIdx,
+    levelName: ['Awakened', 'Practitioner', 'Adept', 'Warrior', 'Master', 'Legend', 'Ascended', 'Eternal'][levelIdx],
+    levelRate: MF_LEVEL_RATES[levelIdx],
+    streak,
+    totalSessions: sessionRows.length,
+    skillTiers,
+  })
+})
+
 app.post('/mf-sessions', (req, res) => {
   const allowed = pick(req.body, MF_SESSION_FIELDS)
   if (!allowed.practiceId) return res.status(400).json({ error: 'practiceId required' })
@@ -2214,10 +2316,14 @@ process.on('unhandledRejection', (err) => {
 const distPath = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath))
-  // SPA fallback — serve index.html for non-API, non-file routes
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) return next()
-    res.sendFile(path.join(distPath, 'index.html'))
+  // SPA fallback — only for browser navigation to frontend routes
+  app.use((req, res) => {
+    // If it's a GET with no file extension, serve the SPA
+    // API routes are already handled above and won't reach here
+    if (req.method === 'GET' && !req.path.includes('.')) {
+      return res.sendFile(path.join(distPath, 'index.html'))
+    }
+    res.status(404).json({ error: 'Not found' })
   })
   console.log(`  Serving frontend from dist/`)
 }
