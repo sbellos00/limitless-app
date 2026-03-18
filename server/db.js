@@ -499,8 +499,8 @@ const exerciseBadgeTx = database.transaction((progressUpdate, dailyExercise) => 
 // Mental Fitness Sessions
 const mfSessionsGetAll = database.prepare('SELECT * FROM mf_sessions WHERE user_id = ? ORDER BY timestamp')
 const mfSessionInsert = database.prepare(`
-  INSERT INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier)
-  VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier)
+  INSERT INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier, skill_splits)
+  VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier, @skill_splits)
 `)
 
 // Mental Fitness Custom Practices
@@ -512,8 +512,8 @@ const mfCustomPracticeInsert = database.prepare(`
 
 const mfBulkImportTx = database.transaction((userId, sessions, customPractices) => {
   const insertOrIgnore = database.prepare(`
-    INSERT OR IGNORE INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier)
-    VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier)
+    INSERT OR IGNORE INTO mf_sessions (id, user_id, timestamp, practice_id, practice_name, is_custom, primary_skill, secondary_skill, xp_awarded, base_xp, multiplier, skill_splits)
+    VALUES (@id, @user_id, @timestamp, @practice_id, @practice_name, @is_custom, @primary_skill, @secondary_skill, @xp_awarded, @base_xp, @multiplier, @skill_splits)
   `)
   const insertOrIgnorePractice = database.prepare(`
     INSERT OR IGNORE INTO mf_custom_practices (id, user_id, name, primary_skill, secondary_skill, created_at)

@@ -32,19 +32,11 @@ The mental fitness system is a skill-based meditation and mental training tracke
 
 ---
 
-## 51 Practices (4 Phases)
+## 51 Built-in Practices
 
-### Fundamentals (基)
-Tranquil Breathing, Meditation Basics, Finger Switching
+Each practice targets a **primary skill** (80% XP) and optionally a **secondary skill** (20% XP). Skills are grouped into categories. Users can also create unlimited custom practices mapped to any skill.
 
-### Concentration (集)
-Breath Focus A-E, Head Switching, Body Scan A-B, Repeated Phrase A-B, Pointing, Mind-Body Sync, Alternate Nostril, Endurance Sit, Discomfort Training
-
-### Metacognition (観)
-Flexible Awareness, Noting A-C, Noting Gone, Just Being, Emotional Priming, Glimpse, Shift into Awareness, Good Vibes, Forgiveness, Best Self, Guided Visualization, Future Self, Affirmation Programming
-
-### Deconstruction (空)
-Aware of Awareness, Headless Way, Self-Inquiry A-D, Actualism, Great Seal, Yoga Nidra, Deep Sleep, Lucid Dream, Dream Yoga, Stoic Meditation, Mortality, Sleep Programming
+The 51 built-in practices each map to a skill from the table above. See `src/data/mental-fitness.js` for the complete practice list with skill mappings.
 
 ---
 
@@ -62,6 +54,7 @@ Aware of Awareness, Headless Way, Self-Inquiry A-D, Actualism, Great Seal, Yoga 
 - Primary skill gets **80%** of awarded XP
 - Secondary skill gets **20%** (if the practice has one)
 - Check-ins award a flat **2 XP** with no skill targeting
+- **Manifestation practices only**: custom `skillSplits` with up to 3 skills and custom ratios (e.g. 33/33/33, 50/30/20). When `skillSplits` is present on a session, it overrides the standard 80/20 split. This should not be used for other practice categories.
 
 ### Streak Multipliers
 | Days | Multiplier |
@@ -140,7 +133,7 @@ Each theme defines its own fonts, colors, border styles, animations, and compone
 ### Home (Overview)
 - Level badge, name, and percentile on bell curve
 - XP progress bar to next level
-- Brain map (51 practice dots across 4 phases)
+- Brain map (51 practice dots, colored by category)
 - Hexagram chart (8 category spider)
 - Check-in buttons
 - Dev: level preview buttons (seed data)
@@ -183,7 +176,8 @@ All endpoints are user-scoped via `X-User-Id` header (defaults to Stef).
   "secondarySkill": null,
   "xpAwarded": 10,
   "baseXp": 10,
-  "multiplier": 1
+  "multiplier": 1,
+  "skillSplits": null
 }
 ```
 
@@ -205,7 +199,8 @@ All endpoints are user-scoped via `X-User-Id` header (defaults to Stef).
 ### mf_sessions (append-only)
 ```
 id, user_id, timestamp, practice_id, practice_name, is_custom,
-primary_skill, secondary_skill, xp_awarded, base_xp, multiplier
+primary_skill, secondary_skill, xp_awarded, base_xp, multiplier,
+skill_splits (JSON, manifestation practices only)
 ```
 
 ### mf_custom_practices (persistent)

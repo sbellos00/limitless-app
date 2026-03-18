@@ -117,7 +117,8 @@ CREATE TABLE IF NOT EXISTS mf_sessions (
   secondary_skill  TEXT,
   xp_awarded       INTEGER NOT NULL DEFAULT 0,
   base_xp          INTEGER,
-  multiplier       REAL
+  multiplier       REAL,
+  skill_splits     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_mf_sessions_user ON mf_sessions(user_id, timestamp);

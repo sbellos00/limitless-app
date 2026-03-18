@@ -916,7 +916,7 @@ app.post('/fitmind-data', (req, res) => {
 // ─── Mental Fitness Skill System ─────────────────────────────────────────────
 
 const MF_SESSION_FIELDS = ['id', 'timestamp', 'practiceId', 'practiceName', 'isCustom',
-  'primarySkill', 'secondarySkill', 'xpAwarded', 'baseXp', 'multiplier']
+  'primarySkill', 'secondarySkill', 'xpAwarded', 'baseXp', 'multiplier', 'skillSplits']
 
 const MF_CUSTOM_PRACTICE_FIELDS = ['id', 'name', 'primarySkill', 'secondarySkill', 'createdAt']
 
@@ -935,6 +935,7 @@ app.get('/mf-sessions', (req, res) => {
     xpAwarded: r.xp_awarded,
     baseXp: r.base_xp,
     multiplier: r.multiplier,
+    skillSplits: r.skill_splits ? JSON.parse(r.skill_splits) : null,
   }))
 
   const customPractices = practiceRows.map(r => ({
@@ -967,6 +968,7 @@ app.post('/mf-sessions', (req, res) => {
       xp_awarded: allowed.xpAwarded || 0,
       base_xp: allowed.baseXp ?? null,
       multiplier: allowed.multiplier ?? null,
+      skill_splits: allowed.skillSplits ? JSON.stringify(allowed.skillSplits) : null,
     })
     res.json({ ok: true, id })
   } catch (e) {
@@ -1019,6 +1021,7 @@ app.post('/mf-sessions/bulk', (req, res) => {
     xp_awarded: s.xpAwarded || 0,
     base_xp: s.baseXp ?? null,
     multiplier: s.multiplier ?? null,
+    skill_splits: s.skillSplits ? JSON.stringify(s.skillSplits) : null,
   }))
 
   const dbPractices = (customPractices || []).map(p => ({

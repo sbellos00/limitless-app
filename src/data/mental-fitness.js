@@ -283,7 +283,16 @@ export const SKILL_TO_CATEGORY = Object.fromEntries(
 export function computeSkillXp(sessions) {
   const xp = Object.fromEntries(ALL_SKILL_IDS.map(id => [id, 0]))
   for (const s of sessions) {
-    if (!s.primarySkill || !s.xpAwarded) continue
+    if (!s.xpAwarded) continue
+    // Custom splits (manifestation practices) — override standard 80/20
+    if (s.skillSplits) {
+      for (const [skill, ratio] of Object.entries(s.skillSplits)) {
+        if (xp[skill] !== undefined) xp[skill] += Math.round(s.xpAwarded * ratio)
+      }
+      continue
+    }
+    // Standard 80/20 split
+    if (!s.primarySkill) continue
     const primary = Math.round(s.xpAwarded * PRIMARY_XP_RATIO)
     const secondary = s.secondarySkill ? Math.round(s.xpAwarded * SECONDARY_XP_RATIO) : 0
     if (xp[s.primarySkill] !== undefined) xp[s.primarySkill] += primary
