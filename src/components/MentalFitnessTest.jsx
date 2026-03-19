@@ -176,7 +176,13 @@ function getStreak(sessions) {
   const real = sessions.filter(s => !s.practiceId?.startsWith('checkin-'))
   if (!real.length) return 0
   const days = [...new Set(real.map(s => getDateKey(s.timestamp)))].sort().reverse()
-  let streak = 0, expected = getDateKey(new Date())
+  const today = getDateKey(new Date())
+  const yd = new Date(); yd.setDate(yd.getDate() - 1)
+  const yesterday = getDateKey(yd)
+  // Start from today if practiced today, otherwise from yesterday (haven't practiced yet today)
+  let expected = days[0] === today ? today : yesterday
+  if (days[0] !== today && days[0] !== yesterday) return 0
+  let streak = 0
   for (const day of days) {
     if (day === expected) {
       streak++

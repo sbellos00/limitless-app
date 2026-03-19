@@ -1048,13 +1048,18 @@ app.get('/mf-stats', (req, res) => {
     const toDateKey = ts => new Date(ts).toISOString().slice(0, 10)
     const days = [...new Set(realSessions.map(r => toDateKey(r.timestamp)))].sort().reverse()
     const today = toDateKey(new Date().toISOString())
-    let expected = today
-    for (const day of days) {
-      if (day === expected) {
-        streak++
-        const d = new Date(expected); d.setDate(d.getDate() - 1)
-        expected = d.toISOString().slice(0, 10)
-      } else if (day < expected) break
+    const yd = new Date(); yd.setDate(yd.getDate() - 1)
+    const yesterday = toDateKey(yd.toISOString())
+    // Start from today if practiced today, otherwise yesterday (haven't practiced yet today)
+    let expected = days[0] === today ? today : yesterday
+    if (days[0] === today || days[0] === yesterday) {
+      for (const day of days) {
+        if (day === expected) {
+          streak++
+          const d = new Date(expected); d.setDate(d.getDate() - 1)
+          expected = d.toISOString().slice(0, 10)
+        } else if (day < expected) break
+      }
     }
   }
 
