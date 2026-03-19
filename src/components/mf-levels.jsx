@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
+import Starfield from './Starfield.jsx'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Helper Overlays
@@ -240,7 +241,7 @@ export function LevelBackground({ special, color }) {
       )
 
     case 'cosmic':
-      return <StarField />
+      return <Starfield starColor="rgba(200,200,220,0.8)" speed={0.3} quantity={350} opacity={0.06} />
 
     default: return null
   }
